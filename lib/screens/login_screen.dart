@@ -18,6 +18,10 @@ class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
   bool _obscurePassword = true;
   bool _loading = false;
+
+  // `static` so the notice stays closed for the rest of the visit, even
+  // after logging out and coming back to this screen.
+  static bool _demoNoticeClosed = false;
   late final AnimationController _glow = AnimationController(
     vsync: this,
     duration: const Duration(seconds: 3),
@@ -119,8 +123,86 @@ class _LoginScreenState extends State<LoginScreen>
                 ),
               ),
             ),
+            // Dismissible "this is a demo" notice, floating on top.
+            _demoNotice(c),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _demoNotice(AppColors c) {
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              // Fades out smoothly when closed.
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                transitionBuilder: (child, anim) => FadeTransition(
+                  opacity: anim,
+                  child: SizeTransition(sizeFactor: anim, child: child),
+                ),
+                child: _demoNoticeClosed
+                    ? const SizedBox(width: double.infinity)
+                    : FadeSlideIn(
+                        delay: const Duration(milliseconds: 700),
+                        child: _demoNoticeCard(c),
+                      ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _demoNoticeCard(AppColors c) {
+    return GlassCard(
+      padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const IconBadge(Icons.science_rounded, kLogoYellow, size: 36),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'This is a demo',
+                  style: TextStyle(
+                    color: c.textPrimary,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13.5,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Just tap Login, no email or password needed. '
+                  'There\'s no backend yet, so nothing is saved or sent.',
+                  style: TextStyle(
+                    color: c.textSecondary,
+                    fontSize: 12,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Dismiss',
+            visualDensity: VisualDensity.compact,
+            icon: Icon(Icons.close_rounded, color: c.textSecondary, size: 18),
+            onPressed: () => setState(() => _demoNoticeClosed = true),
+          ),
+        ],
       ),
     );
   }
