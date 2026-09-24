@@ -1,11 +1,11 @@
 {
-    "name": "agosalert",
-    "short_name": "agosalert",
+    "name": "AgosAlert",
+    "short_name": "AgosAlert",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#0B1130",
+    "theme_color": "#0B1130",
+    "description": "Live weather, flood outlook, and emergency help for Mabalacat City, Pampanga.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

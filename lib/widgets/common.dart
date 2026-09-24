@@ -1021,7 +1021,7 @@ class SelectChip extends StatelessWidget {
                 style: TextStyle(
                   color: selected ? Colors.white : c.textSecondary,
                   fontSize: 12.5,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
                 ),
               ),
             ),

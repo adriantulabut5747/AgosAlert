@@ -31,7 +31,15 @@ class HomeShell extends StatefulWidget {
 class HomeShellState extends State<HomeShell> {
   int _index = 0;
 
-  void switchTab(int index) => setState(() => _index = index);
+  // Tabs are only built the first time they're opened (so, e.g., the map
+  // doesn't download tiles until someone opens the Map tab). After that
+  // they stay alive, so scroll position and filters are kept.
+  final Set<int> _opened = {0};
+
+  void switchTab(int index) => setState(() {
+    _index = index;
+    _opened.add(index);
+  });
 
   static const _tabs = [
     HomeTab(),
@@ -65,7 +73,17 @@ class HomeShellState extends State<HomeShell> {
                 children: [
                   _topBar(c),
                   Expanded(
-                    child: IndexedStack(index: _index, children: _tabs),
+                    child: Stack(
+                      children: [
+                        for (var i = 0; i < _tabs.length; i++)
+                          if (_opened.contains(i))
+                            _TabLayer(
+                              key: ValueKey(i),
+                              active: i == _index,
+                              child: _tabs[i],
+                            ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -337,11 +355,44 @@ class HomeShellState extends State<HomeShell> {
                   fontFamily: kFontFamily,
                   color: color,
                   fontSize: 10.5,
-                  fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
+                  fontWeight: selected ? FontWeight.w800 : FontWeight.w400,
                 ),
                 child: Text(label),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One tab in the shell. The active tab fades and slides in; hidden tabs
+/// are invisible, can't be tapped, and pause their animations.
+class _TabLayer extends StatelessWidget {
+  final bool active;
+  final Widget child;
+  const _TabLayer({required this.active, required this.child, super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    const duration = Duration(milliseconds: 280);
+    return IgnorePointer(
+      ignoring: !active,
+      child: ExcludeSemantics(
+        excluding: !active,
+        child: TickerMode(
+          enabled: active,
+          child: AnimatedOpacity(
+            opacity: active ? 1 : 0,
+            duration: duration,
+            curve: Curves.easeOut,
+            child: AnimatedSlide(
+              offset: active ? Offset.zero : const Offset(0, 0.02),
+              duration: duration,
+              curve: Curves.easeOutCubic,
+              child: child,
+            ),
           ),
         ),
       ),
