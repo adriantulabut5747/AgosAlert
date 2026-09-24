@@ -1,6 +1,6 @@
 {
   "name": "AgosAlert (Flutter)",
-  "image": "docker.io/cirrusci/flutter:stable",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
 
   "customizations": {
     "vscode": {
@@ -15,7 +15,12 @@
   // Codespaces auto-forwards it and gives you a clickable preview URL.
   "forwardPorts": [8080],
 
-  "postCreateCommand": "flutter doctor -v && flutter pub get",
+  "containerEnv": {
+    "PATH": "${containerEnv:PATH}:/usr/local/flutter/bin"
+  },
 
-  "remoteUser": "cirrus"
+  // Installs the Flutter SDK straight from Google's repo, same way as a local install.
+  "onCreateCommand": "sudo apt-get update && sudo apt-get install -y curl git unzip xz-utils zip libglu1-mesa && sudo git clone -b stable --depth 1 https://github.com/flutter/flutter.git /usr/local/flutter && sudo chown -R $(whoami) /usr/local/flutter",
+
+  "postCreateCommand": "flutter doctor -v && flutter pub get"
 }
