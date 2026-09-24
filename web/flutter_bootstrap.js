@@ -7,10 +7,19 @@
   const loader = document.getElementById('loader');
   const status = document.getElementById('loaderStatus');
   const bar = document.getElementById('loaderBar');
+  const fills = [
+    document.getElementById('fillBack'),
+    document.getElementById('fillFront'),
+  ];
 
-  // Each loading stage moves the top progress bar and updates the text.
+  // Each loading stage raises the water in the logo, moves the top
+  // progress bar, and updates the text.
   function stage(percent, text) {
     if (bar) bar.style.width = percent + '%';
+    fills.forEach(function (f, i) {
+      // Back wave sits a little higher than the front one.
+      if (f) f.style.top = (100 - percent * 0.62 - i * 4) + '%';
+    });
     if (status && text) status.textContent = text;
   }
 
@@ -22,17 +31,17 @@
     setTimeout(function () {
       loader.classList.add('done');
       setTimeout(function () { loader.remove(); }, 600);
-    }, 150);
+    }, 400);
   }
 
-  stage(20, 'Loading AgosAlert…');
+  stage(20, 'Checking the waters…');
 
   // Flutter fires this event after drawing the app for the first time.
   window.addEventListener('flutter-first-frame', hideLoader);
 
   _flutter.loader.load({
     onEntrypointLoaded: async function (engineInitializer) {
-      stage(60, 'Starting up…');
+      stage(60, 'Reading the forecast…');
       const appRunner = await engineInitializer.initializeEngine();
       stage(85, 'Almost there…');
       await appRunner.runApp();

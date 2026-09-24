@@ -91,9 +91,46 @@
       padding: 24px; box-sizing: border-box;
       display: flex; flex-direction: column; align-items: center;
     }
-    .logo { height: 170px; filter: drop-shadow(0 0 40px rgba(41,197,246,.25)); }
-    .logo-fallback { width: 96px; height: 96px; border-radius: 50%;
-      background: linear-gradient(135deg, #2D7DD2, #29C5F6); margin: 37px 0; }
+    /* Logo in a round "water drop" that fills with water as it loads */
+    .drop {
+      position: relative; width: 132px; height: 132px; border-radius: 50%;
+      background: rgba(255,255,255,.04);
+      border: 2px solid rgba(41,197,246,.35);
+      box-shadow: 0 0 60px rgba(41,197,246,.25), inset 0 0 30px rgba(41,197,246,.08);
+      overflow: hidden;
+      animation: bob 3.2s ease-in-out infinite;
+    }
+    .drop .fill {
+      position: absolute; left: -50%; width: 200%; height: 100%;
+      top: 100%;
+      transition: top 1.2s cubic-bezier(.22,1,.36,1);
+    }
+    .drop .fill svg { position: absolute; top: -14px; width: 100%; height: 16px; }
+    .drop .fill .body { position: absolute; top: 0; bottom: 0; width: 100%;
+      background: linear-gradient(180deg, #29C5F6, #2D7DD2); }
+    .drop .fill.back { opacity: .45; animation: slide 2.6s linear infinite reverse; }
+    .drop .fill.front { animation: slide 1.9s linear infinite; }
+    .drop img {
+      position: absolute; inset: 14px; width: calc(100% - 28px); height: calc(100% - 28px);
+      object-fit: contain; object-position: top; z-index: 2;
+      filter: drop-shadow(0 2px 6px rgba(0,0,0,.35));
+    }
+    .drop .fallback {
+      position: absolute; inset: 0; z-index: 2; display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 44px;
+    }
+    .brand {
+      margin-top: 8px; font-size: 26px; font-weight: 800; letter-spacing: -.5px; color: #F3F7FB;
+    }
+    .brand .agos { color: #29C5F6; }
+    .brand .dot { color: #FFD21F; }
+
+    /* Bubbles rising from the waves */
+    .bubble {
+      position: absolute; bottom: 90px; border-radius: 50%; z-index: 1;
+      border: 1.5px solid rgba(41,197,246,.5); background: rgba(41,197,246,.08);
+      animation: rise linear infinite; opacity: 0;
+    }
     .tagline { margin-top: 10px; font-size: 13px; font-weight: 500; color: #9FB4CC; }
     .card {
       margin-top: 28px; width: 100%; box-sizing: border-box;
@@ -133,6 +170,12 @@
     @keyframes slide { from { transform: translateX(0); } to { transform: translateX(-50%); } }
     @keyframes shimmer { to { transform: translateX(100%); } }
     @keyframes pulse { 50% { opacity: .35; } }
+    @keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+    @keyframes rise {
+      0% { transform: translateY(0) scale(.6); opacity: 0; }
+      15% { opacity: 1; }
+      100% { transform: translateY(-55vh) scale(1); opacity: 0; }
+    }
 
     /* Respect "reduce motion" accessibility settings */
     @media (prefers-reduced-motion: reduce) {
@@ -145,8 +188,19 @@
     <div class="progress"><span id="loaderBar"></span></div>
 
     <div class="page">
-      <img class="logo" src="assets/assets/images/logo_icon_dark.png" alt="AgosAlert"
-           onerror="this.outerHTML='<div class=&quot;logo-fallback&quot;></div>'">
+      <div class="drop">
+        <div class="fill back" id="fillBack">
+          <svg viewBox="0 0 200 16" preserveAspectRatio="none"><path d="M0 8 Q25 0 50 8 T100 8 T150 8 T200 8 V16 H0Z" fill="#29C5F6"/></svg>
+          <div class="body"></div>
+        </div>
+        <div class="fill front" id="fillFront">
+          <svg viewBox="0 0 200 16" preserveAspectRatio="none"><path d="M0 8 Q25 16 50 8 T100 8 T150 8 T200 8 V16 H0Z" fill="#29C5F6"/></svg>
+          <div class="body"></div>
+        </div>
+        <img src="assets/assets/images/logo_icon_dark.png" alt="AgosAlert"
+             onerror="this.outerHTML='<div class=&quot;fallback&quot;>≋</div>'">
+      </div>
+      <div class="brand"><span class="agos">agos</span>alert<span class="dot">.</span></div>
       <div class="tagline">Flood Monitoring &amp; Emergency Assistance</div>
 
       <div class="card" aria-hidden="true">
@@ -161,8 +215,14 @@
         <div class="sk line" style="width:120px;height:12px;margin:22px auto 6px"></div>
       </div>
 
-      <div class="status"><span class="dot"></span><span id="loaderStatus">Loading AgosAlert…</span></div>
+      <div class="status"><span class="dot"></span><span id="loaderStatus">Checking the waters…</span></div>
     </div>
+
+    <div class="bubble" style="left:18%; width:10px; height:10px; animation-duration:6s; animation-delay:.2s"></div>
+    <div class="bubble" style="left:32%; width:6px;  height:6px;  animation-duration:5s; animation-delay:1.6s"></div>
+    <div class="bubble" style="left:58%; width:12px; height:12px; animation-duration:7s; animation-delay:.8s"></div>
+    <div class="bubble" style="left:74%; width:7px;  height:7px;  animation-duration:5.5s; animation-delay:2.4s"></div>
+    <div class="bubble" style="left:88%; width:9px;  height:9px;  animation-duration:6.5s; animation-delay:3.2s"></div>
 
     <div class="waves" aria-hidden="true">
       <svg class="w1" viewBox="0 0 1440 150" preserveAspectRatio="none"><path fill="#2D7DD2" d="M0 60 C180 20 540 100 720 60 C900 20 1260 100 1440 60 V150 H0Z"/></svg>
