@@ -45,10 +45,10 @@
   <link rel="manifest" href="manifest.json">
 
   <!--
-    LOADING SCREEN = a "skeleton" of the login page.
-    Plain HTML/CSS, so it shows instantly while Flutter downloads. Its
-    layout matches the real login screen, so when flutter_bootstrap.js
-    fades it out, the real page appears in the same place.
+    LOADING SCREEN: the logo in a round "water drop" that fills up as the
+    app loads. Plain HTML/CSS, so it shows instantly while Flutter
+    downloads. flutter_bootstrap.js raises the water at each loading step
+    and fades this out once the app has drawn its first frame.
   -->
   <style>
     html, body { margin: 0; height: 100%; background: #060911; }
@@ -85,7 +85,7 @@
       transition: width .8s cubic-bezier(.22,1,.36,1);
     }
 
-    /* Same sizes and spacing as the Flutter login screen */
+    /* Centered column: logo, name, status */
     .page {
       position: relative; z-index: 2; width: 100%; max-width: 420px;
       padding: 24px; box-sizing: border-box;
@@ -120,7 +120,7 @@
       color: #fff; font-size: 44px;
     }
     .brand {
-      margin-top: 8px; font-size: 26px; font-weight: 800; letter-spacing: -.5px; color: #F3F7FB;
+      margin-top: 22px; font-size: 26px; font-weight: 800; letter-spacing: -.5px; color: #F3F7FB;
     }
     .brand .agos { color: #29C5F6; }
     .brand .dot { color: #FFD21F; }
@@ -131,34 +131,13 @@
       border: 1.5px solid rgba(41,197,246,.5); background: rgba(41,197,246,.08);
       animation: rise linear infinite; opacity: 0;
     }
-    .tagline { margin-top: 10px; font-size: 13px; font-weight: 500; color: #9FB4CC; }
-    .card {
-      margin-top: 28px; width: 100%; box-sizing: border-box;
-      padding: 26px 22px 22px; border-radius: 24px;
-      background: rgba(16,24,40,.62); border: 1px solid rgba(255,255,255,.1);
-    }
     .status {
-      margin-top: 18px; font-size: 12px; color: #9FB4CC; min-height: 16px;
+      margin-top: 10px; font-size: 12px; color: #9FB4CC; min-height: 16px;
       display: flex; align-items: center; gap: 8px;
     }
     .status .dot { width: 7px; height: 7px; border-radius: 50%; background: #29C5F6;
       box-shadow: 0 0 8px #29C5F6; animation: pulse 1.2s ease-in-out infinite; }
 
-    /* Skeleton blocks with a light sweeping across (shimmer) */
-    .sk {
-      border-radius: 16px; background: #16223A; position: relative; overflow: hidden;
-    }
-    .sk::after {
-      content: ""; position: absolute; inset: 0; transform: translateX(-100%);
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,.07), transparent);
-      animation: shimmer 1.3s ease-in-out infinite;
-    }
-    .sk.btn { background: linear-gradient(90deg, rgba(45,125,210,.55), rgba(41,197,246,.55)); }
-    .sk.btn::after { background: linear-gradient(90deg, transparent, rgba(255,255,255,.18), transparent); }
-    .sk.line { border-radius: 6px; }
-    .sk.outline { background: transparent; border: 1px solid rgba(255,255,255,.08); }
-    .row { display: flex; align-items: center; gap: 12px; }
-    .divider { flex: 1; height: 1px; background: rgba(255,255,255,.08); }
 
     /* Layered waves at the bottom, like the app's login screen */
     .waves { position: absolute; left: 0; right: 0; bottom: 0; height: 150px; z-index: 1; }
@@ -168,7 +147,6 @@
     .waves .w3 { animation: slide 7s linear infinite; opacity: .55; height: 70%; }
 
     @keyframes slide { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-    @keyframes shimmer { to { transform: translateX(100%); } }
     @keyframes pulse { 50% { opacity: .35; } }
     @keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
     @keyframes rise {
@@ -201,20 +179,6 @@
              onerror="this.outerHTML='<div class=&quot;fallback&quot;>≋</div>'">
       </div>
       <div class="brand"><span class="agos">agos</span>alert<span class="dot">.</span></div>
-      <div class="tagline">Flood Monitoring &amp; Emergency Assistance</div>
-
-      <div class="card" aria-hidden="true">
-        <div class="sk line" style="width:170px;height:22px"></div>
-        <div class="sk line" style="width:140px;height:12px;margin-top:10px"></div>
-        <div class="sk" style="height:54px;margin-top:22px"></div>
-        <div class="sk" style="height:54px;margin-top:12px"></div>
-        <div class="sk line" style="width:110px;height:12px;margin:18px 0 18px auto"></div>
-        <div class="sk btn" style="height:54px"></div>
-        <div class="row" style="margin:20px 0"><div class="divider"></div><div class="divider"></div></div>
-        <div class="sk outline" style="height:52px"></div>
-        <div class="sk line" style="width:120px;height:12px;margin:22px auto 6px"></div>
-      </div>
-
       <div class="status"><span class="dot"></span><span id="loaderStatus">Checking the waters…</span></div>
     </div>
 

@@ -33,8 +33,8 @@ project: Adrian writes all the code, his groupmates only do the paperwork.
   then the Ports tab → port 8080.
 - Add `--release` to preview at real size (~4 MB instead of ~100 MB for
   debug), but then there's no hot reload.
-- The loading screen is a plain HTML/CSS skeleton of the login page in
-  `web/index.html`, driven by `web/flutter_bootstrap.js` (hidden on
+- The loading screen (logo filling with water, bubbles, waves) is plain
+  HTML/CSS in `web/index.html` (Adrian wants no skeleton card there), driven by `web/flutter_bootstrap.js` (hidden on
   Flutter's `flutter-first-frame`). `index.html` also preloads
   `main.dart.js`, the fonts, and the asset manifests. If you add or rename
   a font, update those preload links too.
