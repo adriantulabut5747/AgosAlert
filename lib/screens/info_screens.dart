@@ -46,8 +46,7 @@ class AboutScreen extends StatelessWidget {
             children: [
               const SizedBox(height: 8),
               Center(
-                child: AssetImageWithFallback(
-                  'assets/images/logo_icon.png',
+                child: BrandLogo.icon(
                   height: 150,
                   fallback: Container(
                     width: 96,

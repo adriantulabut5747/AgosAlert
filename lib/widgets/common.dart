@@ -95,7 +95,63 @@ class AssetImageWithFallback extends StatelessWidget {
       width: width,
       height: height,
       fit: fit,
+      // Keep showing the old image while a new one loads (no flicker).
+      gaplessPlayback: true,
       errorBuilder: (_, _, _) => fallback,
+    );
+  }
+}
+
+/// The AgosAlert logo, in the right colors for the current theme:
+/// the white-text versions (`*_dark.png`) in dark mode, the navy-text
+/// versions in light mode. If a file is missing it falls back to the other
+/// version, then to [fallback].
+class BrandLogo extends StatelessWidget {
+  final bool wordmark; // true = wide "agosalert." text, false = round icon
+  final double height;
+  final Widget fallback;
+  const BrandLogo.icon({
+    required this.height,
+    this.fallback = const SizedBox.shrink(),
+    super.key,
+  }) : wordmark = false;
+  const BrandLogo.wordmark({
+    required this.height,
+    this.fallback = const SizedBox.shrink(),
+    super.key,
+  }) : wordmark = true;
+
+  static const _light = [
+    'assets/images/logo_icon.png',
+    'assets/images/logo_wordmark.png',
+  ];
+  static const _dark = [
+    'assets/images/logo_icon_dark.png',
+    'assets/images/logo_wordmark_dark.png',
+  ];
+
+  /// Loads all four logo files ahead of time, so switching themes swaps the
+  /// logo instantly instead of flashing blank.
+  static void precache(BuildContext context) {
+    for (final path in [..._light, ..._dark]) {
+      precacheImage(AssetImage(path), context, onError: (_, _) {});
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final i = wordmark ? 1 : 0;
+    final dark = AppColors(context).isDark;
+    final first = dark ? _dark[i] : _light[i];
+    final second = dark ? _light[i] : _dark[i];
+    return AssetImageWithFallback(
+      first,
+      height: height,
+      fallback: AssetImageWithFallback(
+        second,
+        height: height,
+        fallback: fallback,
+      ),
     );
   }
 }

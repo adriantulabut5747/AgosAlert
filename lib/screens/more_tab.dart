@@ -91,11 +91,7 @@ class MoreTab extends StatelessWidget {
             children: [
               Opacity(
                 opacity: 0.8,
-                child: AssetImageWithFallback(
-                  'assets/images/logo_wordmark.png',
-                  height: 20,
-                  fallback: const SizedBox.shrink(),
-                ),
+                child: const BrandLogo.wordmark(height: 20),
               ),
               const SizedBox(height: 6),
               Text(

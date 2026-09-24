@@ -24,6 +24,12 @@ class _LoginScreenState extends State<LoginScreen>
   )..repeat(reverse: true);
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    BrandLogo.precache(context);
+  }
+
+  @override
   void dispose() {
     _glow.dispose();
     super.dispose();
@@ -152,8 +158,7 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Widget _logoImage(AppColors c) {
-    return AssetImageWithFallback(
-      'assets/images/logo_icon.png',
+    return BrandLogo.icon(
       height: 170,
       fallback: Column(
         children: [

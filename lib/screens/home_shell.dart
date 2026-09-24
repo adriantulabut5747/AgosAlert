@@ -113,8 +113,7 @@ class HomeShellState extends State<HomeShell> {
       child: Row(
         children: [
           // Wordmark logo; falls back to the old icon + text if it fails.
-          AssetImageWithFallback(
-            'assets/images/logo_wordmark.png',
+          BrandLogo.wordmark(
             height: 28,
             fallback: Row(
               children: [
