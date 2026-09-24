@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../services/prefetch.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import 'home_shell.dart';
@@ -26,6 +27,16 @@ class _LoginScreenState extends State<LoginScreen>
     vsync: this,
     duration: const Duration(seconds: 3),
   )..repeat(reverse: true);
+
+  @override
+  void initState() {
+    super.initState();
+    // Once this screen is showing, quietly start downloading what Home,
+    // the Map tab, and Report incident need, so they're ready after Login.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) prefetchAppContent(dark: AppColors(context).isDark);
+    });
+  }
 
   @override
   void didChangeDependencies() {

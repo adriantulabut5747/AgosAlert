@@ -28,3 +28,13 @@ void openReportIncident(BuildContext context) {
     ),
   );
 }
+
+/// Downloads the Map tab and Report incident code in the background, so
+/// they open instantly later. Errors are ignored: if it fails, they'll
+/// simply download when first opened, as before.
+Future<void> preloadDeferredScreens() async {
+  await Future.wait([
+    map_tab.loadLibrary().then((_) {}, onError: (Object _) {}),
+    report.loadLibrary().then((_) {}, onError: (Object _) {}),
+  ]);
+}

@@ -21,12 +21,17 @@ class HomeTab extends StatefulWidget {
 }
 
 class _HomeTabState extends State<HomeTab> {
-  late Future<MabalacatWeather> _weather = MabalacatWeather.fetch();
+  // Usually already downloaded while the user was on the login screen.
+  late Future<MabalacatWeather> _weather = MabalacatWeather.load();
 
   Future<void> _refresh() async {
-    final next = MabalacatWeather.fetch();
+    final next = MabalacatWeather.load(refresh: true);
     setState(() => _weather = next);
-    await next.catchError((_) => _weather);
+    try {
+      await next;
+    } catch (_) {
+      // The weather card shows the error and a Retry button.
+    }
   }
 
   @override

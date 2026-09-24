@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 
+import '../services/map_tile_urls.dart';
 import '../theme.dart';
 
 /// Map background from Esri's free "Canvas" basemaps: no API key, and
@@ -16,18 +17,13 @@ class AppTileLayer extends StatelessWidget {
 
   static const credits = 'Esri, HERE, Garmin, © OpenStreetMap contributors';
 
-  static const _base =
-      'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas';
-
   @override
   Widget build(BuildContext context) {
-    final style = AppColors(context).isDark ? 'Dark' : 'Light';
+    final dark = AppColors(context).isDark;
     return Stack(
       children: [
-        _layer('$_base/World_${style}_Gray_Base/MapServer/tile/{z}/{y}/{x}'),
-        _layer(
-          '$_base/World_${style}_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
-        ),
+        _layer(esriTileTemplate(dark: dark, labels: false)),
+        _layer(esriTileTemplate(dark: dark, labels: true)),
       ],
     );
   }

@@ -84,6 +84,38 @@ class MabalacatWeather {
     'timezone': 'Asia/Manila',
   });
 
+  // The last request, shared by everyone who asks, so the weather can be
+  // downloaded while the user is still on the login screen and Home shows
+  // it instantly.
+  static Future<MabalacatWeather>? _cached;
+  static DateTime? _cachedAt;
+
+  /// Returns the shared weather request, starting a new one if there is
+  /// none yet, it's older than 10 minutes, it failed, or [refresh] is true.
+  static Future<MabalacatWeather> load({bool refresh = false}) {
+    final stale =
+        _cachedAt == null ||
+        DateTime.now().difference(_cachedAt!) > const Duration(minutes: 10);
+    if (refresh || stale || _cached == null) {
+      final request = fetch();
+      _cached = request;
+      _cachedAt = DateTime.now();
+      // If it fails, forget it so the next load() tries again. (Listening
+      // here also stops a failed background download from being reported
+      // as an uncaught error.)
+      request.then(
+        (_) {},
+        onError: (Object _) {
+          if (identical(_cached, request)) {
+            _cached = null;
+            _cachedAt = null;
+          }
+        },
+      );
+    }
+    return _cached!;
+  }
+
   static Future<MabalacatWeather> fetch() async {
     final res = await http.get(_url).timeout(const Duration(seconds: 10));
     if (res.statusCode != 200) {
