@@ -1,0 +1,87 @@
+import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../theme.dart';
+import 'common.dart';
+
+/// Opens Google Maps with directions to [point].
+Future<void> openDirections(BuildContext context, LatLng point) async {
+  final url = Uri.https('www.google.com', '/maps/dir/', {
+    'api': '1',
+    'destination': '${point.latitude},${point.longitude}',
+  });
+  final ok = await launchUrl(url, mode: LaunchMode.externalApplication);
+  if (!ok && context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Couldn\'t open Google Maps.')),
+    );
+  }
+}
+
+/// Asks before calling, so nobody dials a hotline by accident.
+Future<void> confirmCall(
+  BuildContext context, {
+  required String name,
+  required String number,
+  Color color = kDanger,
+}) {
+  return showAppSheet(
+    context,
+    builder: (sheet) {
+      final c = AppColors(sheet);
+      return Column(
+        children: [
+          IconBadge(Icons.phone_in_talk_rounded, color, size: 64),
+          const SizedBox(height: 14),
+          Text(
+            name,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: c.textPrimary,
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            number,
+            style: TextStyle(
+              color: color,
+              fontSize: 26,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.5,
+            ),
+          ),
+          const SizedBox(height: 20),
+          GradientButton(
+            label: 'Call now',
+            icon: Icons.call_rounded,
+            gradient: LinearGradient(
+              colors: [color, Color.lerp(color, Colors.white, 0.25)!],
+            ),
+            onPressed: () async {
+              Navigator.of(sheet).pop();
+              final digits = number.replaceAll(RegExp(r'[^0-9+]'), '');
+              final ok = await launchUrl(Uri(scheme: 'tel', path: digits));
+              if (!ok && context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Calling isn\'t supported here. Dial $number.',
+                    ),
+                  ),
+                );
+              }
+            },
+          ),
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: () => Navigator.of(sheet).pop(),
+            child: Text('Cancel', style: TextStyle(color: c.textSecondary)),
+          ),
+        ],
+      );
+    },
+  );
+}

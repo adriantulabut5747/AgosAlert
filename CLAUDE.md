@@ -5,13 +5,26 @@ project: Adrian writes all the code, his groupmates only do the paperwork.
 
 ## Layout
 
-- The whole app is in `lib/main.dart` (~1,950 lines): theme, login screen,
-  and the five tabs (Home, Map, Alerts, Assistance, More) plus the Report
-  Incident screen.
-- All data is hard-coded demo data (alerts, river levels, evacuation
-  centers). A real data source is coming later as a file from Adrian.
-- `test/widget_test.dart` checks that the login screen loads. Use `pump()`,
-  not `pumpAndSettle()` — the logo glow animation repeats forever.
+- `lib/main.dart` only starts the app. `lib/theme.dart` has the colors,
+  font (Plus Jakarta Sans, bundled in `assets/fonts/`), and `RiskLevel`.
+- `lib/screens/`: one file per screen: login, home shell (top bar + bottom
+  nav), the five tabs (home, map, alerts, assistance, more), plus
+  evacuation centers, report incident, settings, and about/help.
+- `lib/widgets/common.dart`: shared building blocks (AppCard,
+  GradientButton, FadeSlideIn, AnimatedWaves, showAppSheet...). Reuse
+  these instead of restyling from scratch. `lib/widgets/links.dart`:
+  tap-to-call (always asks first) and Google Maps directions.
+- `lib/services/weather.dart`: live Mabalacat weather from Open-Meteo (free,
+  no key) and the rain-based flood outlook.
+- `lib/data/demo_data.dart`: all made-up data (rivers, flood zones, alerts,
+  evacuation centers). Shown with a SAMPLE badge in the UI. A real data
+  source is coming later as a file from Adrian. Barangay coordinates are
+  real (OpenStreetMap).
+- Optional photos: `assets/images/evac_*.jpg` (names in demo_data.dart).
+  Missing files fall back to a gradient.
+- `test/widget_test.dart` checks the login screen and that every screen
+  renders at phone size without overflow. Use `pump()`, not
+  `pumpAndSettle()`: several animations repeat forever.
 
 ## Running
 
@@ -29,9 +42,10 @@ live site his groupmates screenshot — use a branch for risky changes.
 
 ## Known issues
 
-- The Map tab loads its image from `staticmap.openstreetmap.de`, which no
-  longer exists, so it always shows the offline fallback. Adrian said to
-  leave it for now.
+- The Map tab uses `flutter_map` with CARTO tiles (dark/light match the
+  theme). The old `staticmap.openstreetmap.de` image is gone.
+- In the dark theme, the dark-navy "alert" in the logos is hard to read.
+  Adrian chose to keep it as-is.
 
 ## Working with Adrian
 
