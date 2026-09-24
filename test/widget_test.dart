@@ -9,7 +9,7 @@ void main() {
     // so the app never "settles".
     await tester.pump();
 
-    expect(find.text('AGOSALERT'), findsOneWidget);
+    expect(find.text('Login to your account'), findsOneWidget);
     expect(find.text('Login'), findsOneWidget);
   });
 }

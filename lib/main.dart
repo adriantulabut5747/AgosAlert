@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
 void main() {
   runApp(const AgosAlertApp());
@@ -87,7 +89,11 @@ class GradientBackground extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = AppColors(context);
+    // Fill the whole screen, even when the child (e.g. a scroll view) is
+    // shorter — otherwise the area below it shows as a blank strip.
     return Container(
+      width: double.infinity,
+      height: double.infinity,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
@@ -96,6 +102,27 @@ class GradientBackground extends StatelessWidget {
         ),
       ),
       child: child,
+    );
+  }
+}
+
+/// Shows an image from assets/images/, or [fallback] if it fails to load.
+class _AssetImageWithFallback extends StatelessWidget {
+  final String path;
+  final double? width;
+  final double? height;
+  final Widget fallback;
+  const _AssetImageWithFallback(this.path,
+      {this.width, this.height, required this.fallback});
+
+  @override
+  Widget build(BuildContext context) {
+    return Image.asset(
+      path,
+      width: width,
+      height: height,
+      fit: BoxFit.contain,
+      errorBuilder: (_, _, _) => fallback,
     );
   }
 }
@@ -181,44 +208,54 @@ class _LoginScreenState extends State<LoginScreen>
             child: Column(
               children: [
                 const SizedBox(height: 24),
-                AnimatedBuilder(
-                  animation: _glowController,
-                  builder: (context, child) {
-                    final glow = 12 + (_glowController.value * 10);
-                    return Container(
-                      width: 96,
-                      height: 96,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          colors: [c.accent, kSkyBlueLight],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: c.accent.withValues(alpha: 0.5),
-                            blurRadius: glow,
-                            spreadRadius: 1,
-                          ),
-                        ],
+                // The logo image already includes the "agosalert." text.
+                // If it fails to load, show the old glowing icon + title.
+                _AssetImageWithFallback(
+                  'assets/images/logo_icon.png',
+                  height: 170,
+                  fallback: Column(
+                    children: [
+                      AnimatedBuilder(
+                        animation: _glowController,
+                        builder: (context, child) {
+                          final glow = 12 + (_glowController.value * 10);
+                          return Container(
+                            width: 96,
+                            height: 96,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: LinearGradient(
+                                colors: [c.accent, kSkyBlueLight],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: c.accent.withValues(alpha: 0.5),
+                                  blurRadius: glow,
+                                  spreadRadius: 1,
+                                ),
+                              ],
+                            ),
+                            child: const Icon(Icons.waves_rounded,
+                                color: Colors.white, size: 44),
+                          );
+                        },
                       ),
-                      child: const Icon(Icons.waves_rounded,
-                          color: Colors.white, size: 44),
-                    );
-                  },
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  'AGOSALERT',
-                  style: TextStyle(
-                    color: c.textPrimary,
-                    fontSize: 30,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 2,
+                      const SizedBox(height: 20),
+                      Text(
+                        'AGOSALERT',
+                        style: TextStyle(
+                          color: c.textPrimary,
+                          fontSize: 30,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 12),
                 Text(
                   'Flood Monitoring & Emergency Assistance',
                   style: TextStyle(color: c.textSecondary, fontSize: 13),
@@ -313,8 +350,17 @@ class _LoginScreenState extends State<LoginScreen>
                         ],
                       ),
                       const SizedBox(height: 18),
-                      _socialButton(c, 'Continue with Google',
-                          Icons.g_mobiledata),
+                      _socialButton(
+                        c,
+                        'Continue with Google',
+                        _AssetImageWithFallback(
+                          'assets/images/google_logo.png',
+                          width: 18,
+                          height: 18,
+                          fallback: Icon(Icons.g_mobiledata,
+                              color: c.textPrimary, size: 20),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -354,12 +400,12 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  Widget _socialButton(AppColors c, String label, IconData icon) {
+  Widget _socialButton(AppColors c, String label, Widget icon) {
     return SizedBox(
       width: double.infinity,
       child: OutlinedButton.icon(
         onPressed: () {},
-        icon: Icon(icon, color: c.textPrimary, size: 20),
+        icon: icon,
         label: Text(label, style: TextStyle(color: c.textPrimary)),
         style: OutlinedButton.styleFrom(
           side: BorderSide(color: c.border),
@@ -555,24 +601,30 @@ class _HomeShellState extends State<HomeShell> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(colors: [c.accent, kSkyBlueLight]),
-                  shape: BoxShape.circle,
+          // Wordmark logo; falls back to the old icon + text if it fails.
+          _AssetImageWithFallback(
+            'assets/images/logo_wordmark.png',
+            height: 30,
+            fallback: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    gradient:
+                        LinearGradient(colors: [c.accent, kSkyBlueLight]),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.waves_rounded,
+                      color: Colors.white, size: 18),
                 ),
-                child: const Icon(Icons.waves_rounded,
-                    color: Colors.white, size: 18),
-              ),
-              const SizedBox(width: 10),
-              Text('AGOSALERT',
-                  style: TextStyle(
-                      color: c.textPrimary,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold)),
-            ],
+                const SizedBox(width: 10),
+                Text('AGOSALERT',
+                    style: TextStyle(
+                        color: c.textPrimary,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold)),
+              ],
+            ),
           ),
           Row(
             children: [
@@ -623,7 +675,7 @@ class HomeTab extends StatelessWidget {
           Text('Here is today\'s flood situation',
               style: TextStyle(color: c.textSecondary, fontSize: 12)),
           const SizedBox(height: 18),
-          _FloodAlertCard(c: c),
+          _WeatherCard(c: c),
           const SizedBox(height: 24),
           Text('Quick Actions',
               style: TextStyle(
@@ -792,31 +844,100 @@ class HomeTab extends StatelessWidget {
   }
 }
 
-class _FloodAlertCard extends StatefulWidget {
-  final AppColors c;
-  const _FloodAlertCard({required this.c});
+/// Live weather for Mabalacat City from Open-Meteo (https://open-meteo.com).
+/// Free, no API key, and it allows browser requests, so it works on web.
+class MabalacatWeather {
+  final double temperature;
+  final double feelsLike;
+  final int humidity;
+  final double precipitation; // mm in the last 15 minutes
+  final double windSpeed; // km/h
+  final int weatherCode; // WMO code, see _weatherInfo
+  final int rainChanceToday; // %
+  final DateTime time; // local Manila time
 
-  @override
-  State<_FloodAlertCard> createState() => _FloodAlertCardState();
+  const MabalacatWeather({
+    required this.temperature,
+    required this.feelsLike,
+    required this.humidity,
+    required this.precipitation,
+    required this.windSpeed,
+    required this.weatherCode,
+    required this.rainChanceToday,
+    required this.time,
+  });
+
+  static final _url = Uri.https('api.open-meteo.com', '/v1/forecast', {
+    'latitude': '15.2236', // Mabalacat City
+    'longitude': '120.5714',
+    'current': 'temperature_2m,relative_humidity_2m,apparent_temperature,'
+        'precipitation,weather_code,wind_speed_10m',
+    'daily': 'precipitation_probability_max',
+    'forecast_days': '1',
+    'timezone': 'Asia/Manila',
+  });
+
+  static Future<MabalacatWeather> fetch() async {
+    final res = await http.get(_url).timeout(const Duration(seconds: 10));
+    if (res.statusCode != 200) {
+      throw Exception('Weather API returned ${res.statusCode}');
+    }
+    final json = jsonDecode(res.body) as Map<String, dynamic>;
+    final cur = json['current'] as Map<String, dynamic>;
+    final daily = json['daily'] as Map<String, dynamic>;
+    return MabalacatWeather(
+      temperature: (cur['temperature_2m'] as num).toDouble(),
+      feelsLike: (cur['apparent_temperature'] as num).toDouble(),
+      humidity: (cur['relative_humidity_2m'] as num).toInt(),
+      precipitation: (cur['precipitation'] as num).toDouble(),
+      windSpeed: (cur['wind_speed_10m'] as num).toDouble(),
+      weatherCode: (cur['weather_code'] as num).toInt(),
+      rainChanceToday:
+          ((daily['precipitation_probability_max'] as List).first as num?)
+                  ?.toInt() ??
+              0,
+      time: DateTime.parse(cur['time'] as String),
+    );
+  }
 }
 
-class _FloodAlertCardState extends State<_FloodAlertCard>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _pulse;
+/// Turns a WMO weather code into a label and icon.
+(String, IconData) _weatherInfo(int code) {
+  if (code == 0) return ('Clear sky', Icons.wb_sunny_rounded);
+  if (code <= 2) return ('Partly cloudy', Icons.wb_cloudy_outlined);
+  if (code == 3) return ('Overcast', Icons.cloud_rounded);
+  if (code <= 48) return ('Foggy', Icons.foggy);
+  if (code <= 57) return ('Drizzle', Icons.grain_rounded);
+  if (code <= 67) return ('Rain', Icons.water_drop_rounded);
+  if (code <= 77) return ('Snow', Icons.ac_unit_rounded);
+  if (code <= 82) return ('Rain showers', Icons.umbrella_rounded);
+  return ('Thunderstorm', Icons.thunderstorm_rounded);
+}
+
+String _formatTime(DateTime t) {
+  final h = t.hour % 12 == 0 ? 12 : t.hour % 12;
+  final m = t.minute.toString().padLeft(2, '0');
+  return '$h:$m ${t.hour < 12 ? 'AM' : 'PM'}';
+}
+
+class _WeatherCard extends StatefulWidget {
+  final AppColors c;
+  const _WeatherCard({required this.c});
+
+  @override
+  State<_WeatherCard> createState() => _WeatherCardState();
+}
+
+class _WeatherCardState extends State<_WeatherCard> {
+  late Future<MabalacatWeather> _weather;
 
   @override
   void initState() {
     super.initState();
-    _pulse = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 1400))
-      ..repeat(reverse: true);
+    _weather = MabalacatWeather.fetch();
   }
 
-  @override
-  void dispose() {
-    _pulse.dispose();
-    super.dispose();
-  }
+  void _refresh() => setState(() => _weather = MabalacatWeather.fetch());
 
   @override
   Widget build(BuildContext context) {
@@ -841,59 +962,104 @@ class _FloodAlertCardState extends State<_FloodAlertCard>
               offset: const Offset(0, 6)),
         ],
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ScaleTransition(
-            scale: Tween(begin: 0.92, end: 1.08).animate(
-                CurvedAnimation(parent: _pulse, curve: Curves.easeInOut)),
-            child: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                  color: c.accent.withValues(alpha: 0.22), shape: BoxShape.circle),
-              child: Icon(Icons.warning_amber_rounded, color: c.accent, size: 22),
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: FutureBuilder<MabalacatWeather>(
+        future: _weather,
+        builder: (context, snap) {
+          if (snap.connectionState != ConnectionState.done) {
+            return SizedBox(
+              height: 90,
+              child: Center(
+                  child: CircularProgressIndicator(color: c.accent)),
+            );
+          }
+          if (snap.hasError) {
+            return Row(
               children: [
-                Row(
-                  children: [
-                    Text('Flood Alert',
-                        style: TextStyle(
-                            color: c.textPrimary,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14)),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                          color: c.accent, borderRadius: BorderRadius.circular(20)),
-                      child: const Text('MODERATE',
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold)),
-                    ),
-                  ],
+                Icon(Icons.cloud_off_rounded, color: c.textSecondary, size: 28),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text('Couldn\'t load the weather. Check your internet.',
+                      style: TextStyle(color: c.textSecondary, fontSize: 12.5)),
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  'Rivers in Mabalacat City are currently rising. Please stay alert and avoid low-lying areas.',
-                  style:
-                      TextStyle(color: c.textSecondary, fontSize: 12, height: 1.4),
-                ),
-                const SizedBox(height: 8),
-                Text('Apr 28, 2025 • 10:24 AM',
-                    style: TextStyle(color: c.textSecondary, fontSize: 11)),
+                TextButton(onPressed: _refresh, child: const Text('Retry')),
               ],
-            ),
-          ),
-        ],
+            );
+          }
+          final w = snap.data!;
+          final (label, icon) = _weatherInfo(w.weatherCode);
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                        color: c.accent.withValues(alpha: 0.22),
+                        shape: BoxShape.circle),
+                    child: Icon(icon, color: c.accent, size: 26),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('${w.temperature.round()}°C · $label',
+                            style: TextStyle(
+                                color: c.textPrimary,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18)),
+                        const SizedBox(height: 2),
+                        Text('Feels like ${w.feelsLike.round()}°C',
+                            style: TextStyle(
+                                color: c.textSecondary, fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Refresh',
+                    onPressed: _refresh,
+                    icon: Icon(Icons.refresh_rounded,
+                        color: c.textSecondary, size: 20),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _stat(c, Icons.umbrella_rounded, '${w.rainChanceToday}%',
+                      'Rain today'),
+                  _stat(c, Icons.water_drop_outlined,
+                      '${w.precipitation} mm', 'Rain now'),
+                  _stat(c, Icons.opacity_rounded, '${w.humidity}%',
+                      'Humidity'),
+                  _stat(c, Icons.air_rounded, '${w.windSpeed.round()} km/h',
+                      'Wind'),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text('Updated ${_formatTime(w.time)} · Open-Meteo',
+                  style: TextStyle(color: c.textSecondary, fontSize: 11)),
+            ],
+          );
+        },
       ),
+    );
+  }
+
+  Widget _stat(AppColors c, IconData icon, String value, String label) {
+    return Column(
+      children: [
+        Icon(icon, color: c.accent, size: 18),
+        const SizedBox(height: 4),
+        Text(value,
+            style: TextStyle(
+                color: c.textPrimary,
+                fontWeight: FontWeight.w600,
+                fontSize: 12.5)),
+        Text(label, style: TextStyle(color: c.textSecondary, fontSize: 10.5)),
+      ],
     );
   }
 }
