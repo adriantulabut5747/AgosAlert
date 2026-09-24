@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:agosalert/data/demo_data.dart';
 import 'package:agosalert/main.dart';
 import 'package:agosalert/screens/evacuation_centers_screen.dart';
 import 'package:agosalert/screens/home_shell.dart';

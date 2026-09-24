@@ -33,8 +33,16 @@ project: Adrian writes all the code, his groupmates only do the paperwork.
   then the Ports tab → port 8080.
 - Add `--release` to preview at real size (~4 MB instead of ~100 MB for
   debug), but then there's no hot reload.
-- The loading screen is plain HTML/CSS in `web/index.html`, driven by
-  `web/flutter_bootstrap.js` (hidden on Flutter's `flutter-first-frame`).
+- The loading screen is a plain HTML/CSS skeleton of the login page in
+  `web/index.html`, driven by `web/flutter_bootstrap.js` (hidden on
+  Flutter's `flutter-first-frame`). `index.html` also preloads
+  `main.dart.js`, the fonts, and the asset manifests. If you add or rename
+  a font, update those preload links too.
+- The Map tab and Report incident screen are deferred (downloaded on first
+  use). Always open them through `lib/screens/deferred_screens.dart`, and
+  keep `flutter_map` / `image_picker` imports out of every other file, or
+  they'll end up back in the first download.
+- In-app loading placeholders live in `lib/widgets/skeleton.dart`.
 - Check before committing: `flutter analyze` and `flutter test`.
 
 ## Deploying

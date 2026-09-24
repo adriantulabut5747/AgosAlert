@@ -5,7 +5,7 @@ import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/links.dart';
 import 'evacuation_centers_screen.dart';
-import 'report_incident_screen.dart';
+import 'deferred_screens.dart';
 
 /// ============================================================
 /// ASSISTANCE TAB — SOS, quick help, hotlines, go-bag checklist
@@ -73,9 +73,7 @@ class _AssistanceTabState extends State<AssistanceTab> {
         'Report incident',
         'Flooding, blocked roads',
         const Color(0xFFF97316),
-        () =>
-            Navigator.of(context)
-                .push(slideRoute(const ReportIncidentScreen())),
+        () => openReportIncident(context),
       ),
       (
         Icons.person_search_rounded,

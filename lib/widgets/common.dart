@@ -130,10 +130,13 @@ class BrandLogo extends StatelessWidget {
     'assets/images/logo_wordmark_dark.png',
   ];
 
-  /// Loads all four logo files ahead of time, so switching themes swaps the
-  /// logo instantly instead of flashing blank.
+  /// Loads the current theme's two logos ahead of time. (Only the current
+  /// theme's: loading all four cost phones ~150 KB extra at startup. The
+  /// other pair loads when the theme is switched; gaplessPlayback in
+  /// AssetImageWithFallback keeps the old logo visible meanwhile.)
   static void precache(BuildContext context) {
-    for (final path in [..._light, ..._dark]) {
+    final paths = AppColors(context).isDark ? _dark : _light;
+    for (final path in paths) {
       precacheImage(AssetImage(path), context, onError: (_, _) {});
     }
   }

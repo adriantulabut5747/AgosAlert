@@ -8,7 +8,7 @@ import '../widgets/common.dart';
 import 'alerts_tab.dart';
 import 'assistance_tab.dart';
 import 'home_tab.dart';
-import 'map_tab.dart';
+import 'deferred_screens.dart';
 import 'more_tab.dart';
 
 /// On wide screens (laptop browsers), keep the app phone-width and centered.
@@ -41,12 +41,13 @@ class HomeShellState extends State<HomeShell> {
     _opened.add(index);
   });
 
-  static const _tabs = [
-    HomeTab(),
-    MapTab(),
-    AlertsTab(),
-    AssistanceTab(),
-    MoreTab(),
+  // The Map tab's code is downloaded the first time it's opened.
+  static final _tabs = [
+    const HomeTab(),
+    deferredMapTab(),
+    const AlertsTab(),
+    const AssistanceTab(),
+    const MoreTab(),
   ];
 
   static const _items = [

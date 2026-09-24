@@ -4,9 +4,10 @@ import '../data/demo_data.dart';
 import '../services/weather.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/skeleton.dart';
 import 'evacuation_centers_screen.dart';
 import 'home_shell.dart';
-import 'report_incident_screen.dart';
+import 'deferred_screens.dart';
 
 /// ============================================================
 /// HOME TAB — live Mabalacat weather, flood outlook, forecast,
@@ -187,9 +188,7 @@ class _HomeTabState extends State<HomeTab> {
         Icons.campaign_rounded,
         'Report\nIncident',
         const Color(0xFFF97316),
-        () =>
-            Navigator.of(context)
-                .push(slideRoute(const ReportIncidentScreen())),
+        () => openReportIncident(context),
       ),
       (
         Icons.night_shelter_rounded,
@@ -823,42 +822,35 @@ class _WeatherSection extends StatelessWidget {
   }
 }
 
-/// Pulsing placeholder while the weather loads.
-class _WeatherSkeleton extends StatefulWidget {
+/// Shimmering placeholder shaped like the weather card, flood outlook,
+/// and hourly strip, shown while the weather loads.
+class _WeatherSkeleton extends StatelessWidget {
   const _WeatherSkeleton();
 
   @override
-  State<_WeatherSkeleton> createState() => _WeatherSkeletonState();
-}
-
-class _WeatherSkeletonState extends State<_WeatherSkeleton>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 900),
-  )..repeat(reverse: true);
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final c = AppColors(context);
-    Widget block(double h) => Container(
-      height: h,
-      decoration: BoxDecoration(
-        color: c.surface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: c.border),
-      ),
-    );
-    return FadeTransition(
-      opacity: Tween(begin: 0.45, end: 1.0).animate(_ctrl),
+    return const Shimmer(
       child: Column(
-        children: [block(250), const SizedBox(height: 14), block(150)],
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SkeletonBox(height: 262, radius: 28), // weather card
+          SizedBox(height: 14),
+          SkeletonBox(height: 150, radius: 20), // flood outlook
+          SizedBox(height: 26),
+          SkeletonBox(width: 120, height: 14, radius: 6), // "Next 12 hours"
+          SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(child: SkeletonBox(height: 128, radius: 22)),
+              SizedBox(width: 10),
+              Expanded(child: SkeletonBox(height: 128, radius: 22)),
+              SizedBox(width: 10),
+              Expanded(child: SkeletonBox(height: 128, radius: 22)),
+              SizedBox(width: 10),
+              Expanded(child: SkeletonBox(height: 128, radius: 22)),
+            ],
+          ),
+        ],
       ),
     );
   }

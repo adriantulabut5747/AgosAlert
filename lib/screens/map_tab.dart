@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../data/demo_data.dart';
 import '../theme.dart';
@@ -13,6 +14,14 @@ import '../widgets/links.dart';
 /// MAP TAB — interactive map of Mabalacat City (OpenStreetMap
 /// tiles, recolored in dark mode) with flood zones and evacuation centers
 /// ============================================================
+/// The map can't be dragged outside this box (Mabalacat City and a little
+/// margin around it). Lives here, not in demo_data.dart, so the map
+/// package stays out of the app's first download.
+final LatLngBounds kMabalacatBounds = LatLngBounds(
+  const LatLng(15.130, 120.490), // south-west
+  const LatLng(15.300, 120.670), // north-east
+);
+
 class MapTab extends StatefulWidget {
   const MapTab({super.key});
 

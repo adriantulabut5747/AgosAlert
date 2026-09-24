@@ -22,29 +22,43 @@
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <!-- Start connecting to Google's CDN early: Flutter downloads its
-       drawing engine (CanvasKit) from there. Saves time on first load. -->
+  <!--
+    SPEED: start every download right away, all at the same time.
+    Without these, the browser only discovers the app code, fonts, and
+    asset lists one step after another as Flutter starts up.
+  -->
+  <!-- Flutter's drawing engine (CanvasKit) comes from Google's CDN. -->
   <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <!-- The app itself. -->
+  <link rel="preload" href="main.dart.js" as="script">
+  <!-- Lists of fonts/images, and the fonts (normally fetched only after
+       the engine has started). -->
+  <link rel="preload" href="assets/AssetManifest.bin.json" as="fetch" crossorigin>
+  <link rel="preload" href="assets/FontManifest.json" as="fetch" crossorigin>
+  <link rel="preload" href="assets/fonts/MaterialIcons-Regular.otf" as="fetch" crossorigin>
+  <link rel="preload" href="assets/assets/fonts/PlusJakartaSans-Regular.ttf" as="fetch" crossorigin>
+  <link rel="preload" href="assets/assets/fonts/PlusJakartaSans-SemiBold.ttf" as="fetch" crossorigin>
+  <link rel="preload" href="assets/assets/fonts/PlusJakartaSans-Bold.ttf" as="fetch" crossorigin>
+  <link rel="preload" href="assets/assets/fonts/PlusJakartaSans-ExtraBold.ttf" as="fetch" crossorigin>
 
   <title>AgosAlert · Mabalacat City</title>
   <link rel="manifest" href="manifest.json">
 
   <!--
-    LOADING SCREEN
-    Plain HTML/CSS so it shows instantly, while Flutter is still
-    downloading. flutter_bootstrap.js fades it out once the app has
-    drawn its first frame.
+    LOADING SCREEN = a "skeleton" of the login page.
+    Plain HTML/CSS, so it shows instantly while Flutter downloads. Its
+    layout matches the real login screen, so when flutter_bootstrap.js
+    fades it out, the real page appears in the same place.
   -->
   <style>
     html, body { margin: 0; height: 100%; background: #060911; }
 
     #loader {
-      position: fixed; inset: 0; z-index: 9999;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      overflow: hidden;
+      position: fixed; inset: 0; z-index: 9999; overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
       background: linear-gradient(180deg, #0B1130 0%, #060911 100%);
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-      transition: opacity .6s ease, visibility .6s ease;
+      transition: opacity .5s ease, visibility .5s ease;
     }
     #loader.done { opacity: 0; visibility: hidden; }
 
@@ -53,86 +67,72 @@
       content: ""; position: absolute; border-radius: 50%; pointer-events: none;
     }
     #loader::before {
-      width: 420px; height: 420px; top: -160px; right: -140px;
-      background: radial-gradient(circle, rgba(45,125,210,.28), transparent 70%);
+      width: 340px; height: 340px; top: -140px; right: -120px;
+      background: radial-gradient(circle, rgba(45,125,210,.22), transparent 70%);
     }
     #loader::after {
-      width: 380px; height: 380px; bottom: 60px; left: -180px;
-      background: radial-gradient(circle, rgba(41,197,246,.2), transparent 70%);
+      width: 320px; height: 320px; bottom: 80px; left: -160px;
+      background: radial-gradient(circle, rgba(41,197,246,.16), transparent 70%);
     }
 
-    /* Logo in a round "water drop" that slowly fills with water */
-    .drop {
-      position: relative; width: 132px; height: 132px; border-radius: 50%;
-      background: rgba(255,255,255,.04);
-      border: 2px solid rgba(41,197,246,.35);
-      box-shadow: 0 0 60px rgba(41,197,246,.25), inset 0 0 30px rgba(41,197,246,.08);
-      overflow: hidden;
-      animation: bob 3.2s ease-in-out infinite;
-    }
-    .drop .fill {
-      position: absolute; left: -50%; width: 200%; height: 100%;
-      top: 100%;
-      transition: top 1.2s cubic-bezier(.22,1,.36,1);
-    }
-    .drop .fill svg { position: absolute; top: -14px; width: 100%; height: 16px; }
-    .drop .fill .body { position: absolute; top: 0; bottom: 0; width: 100%;
-      background: linear-gradient(180deg, #29C5F6, #2D7DD2); }
-    .drop .fill.back { opacity: .45; animation: slide 2.6s linear infinite reverse; }
-    .drop .fill.front { animation: slide 1.9s linear infinite; }
-    .drop img {
-      position: absolute; inset: 14px; width: calc(100% - 28px); height: calc(100% - 28px);
-      object-fit: contain; object-position: top; z-index: 2;
-      filter: drop-shadow(0 2px 6px rgba(0,0,0,.35));
-    }
-    .drop .fallback {
-      position: absolute; inset: 0; z-index: 2; display: flex; align-items: center; justify-content: center;
-      color: #fff; font-size: 44px;
-    }
-
-    .brand {
-      margin-top: 26px; font-size: 28px; font-weight: 800; letter-spacing: -.5px; color: #F3F7FB;
-    }
-    .brand .agos { color: #29C5F6; }
-    .brand .dot { color: #FFD21F; }
-
-    .status {
-      margin-top: 8px; font-size: 13px; color: #9FB4CC; min-height: 18px;
-      transition: opacity .3s ease;
-    }
-
-    .bar {
-      margin-top: 18px; width: 180px; height: 4px; border-radius: 4px;
-      background: rgba(255,255,255,.08); overflow: hidden;
-    }
-    .bar span {
-      display: block; height: 100%; width: 8%; border-radius: 4px;
+    /* Thin progress bar along the top */
+    .progress { position: absolute; top: 0; left: 0; right: 0; height: 3px; z-index: 3; }
+    .progress span {
+      display: block; height: 100%; width: 8%;
       background: linear-gradient(90deg, #2D7DD2, #29C5F6);
-      box-shadow: 0 0 10px rgba(41,197,246,.6);
+      box-shadow: 0 0 12px rgba(41,197,246,.8);
+      border-radius: 0 3px 3px 0;
       transition: width .8s cubic-bezier(.22,1,.36,1);
     }
 
-    /* Bubbles rising from the waves */
-    .bubble {
-      position: absolute; bottom: 90px; border-radius: 50%;
-      border: 1.5px solid rgba(41,197,246,.5); background: rgba(41,197,246,.08);
-      animation: rise linear infinite; opacity: 0;
+    /* Same sizes and spacing as the Flutter login screen */
+    .page {
+      position: relative; z-index: 2; width: 100%; max-width: 420px;
+      padding: 24px; box-sizing: border-box;
+      display: flex; flex-direction: column; align-items: center;
     }
+    .logo { height: 170px; filter: drop-shadow(0 0 40px rgba(41,197,246,.25)); }
+    .logo-fallback { width: 96px; height: 96px; border-radius: 50%;
+      background: linear-gradient(135deg, #2D7DD2, #29C5F6); margin: 37px 0; }
+    .tagline { margin-top: 10px; font-size: 13px; font-weight: 500; color: #9FB4CC; }
+    .card {
+      margin-top: 28px; width: 100%; box-sizing: border-box;
+      padding: 26px 22px 22px; border-radius: 24px;
+      background: rgba(16,24,40,.62); border: 1px solid rgba(255,255,255,.1);
+    }
+    .status {
+      margin-top: 18px; font-size: 12px; color: #9FB4CC; min-height: 16px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .status .dot { width: 7px; height: 7px; border-radius: 50%; background: #29C5F6;
+      box-shadow: 0 0 8px #29C5F6; animation: pulse 1.2s ease-in-out infinite; }
+
+    /* Skeleton blocks with a light sweeping across (shimmer) */
+    .sk {
+      border-radius: 16px; background: #16223A; position: relative; overflow: hidden;
+    }
+    .sk::after {
+      content: ""; position: absolute; inset: 0; transform: translateX(-100%);
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,.07), transparent);
+      animation: shimmer 1.3s ease-in-out infinite;
+    }
+    .sk.btn { background: linear-gradient(90deg, rgba(45,125,210,.55), rgba(41,197,246,.55)); }
+    .sk.btn::after { background: linear-gradient(90deg, transparent, rgba(255,255,255,.18), transparent); }
+    .sk.line { border-radius: 6px; }
+    .sk.outline { background: transparent; border: 1px solid rgba(255,255,255,.08); }
+    .row { display: flex; align-items: center; gap: 12px; }
+    .divider { flex: 1; height: 1px; background: rgba(255,255,255,.08); }
 
     /* Layered waves at the bottom, like the app's login screen */
-    .waves { position: absolute; left: 0; right: 0; bottom: 0; height: 150px; }
+    .waves { position: absolute; left: 0; right: 0; bottom: 0; height: 150px; z-index: 1; }
     .waves svg { position: absolute; bottom: 0; width: 200%; height: 100%; }
-    .waves .w1 { animation: slide 14s linear infinite; opacity: .35; }
-    .waves .w2 { animation: slide 10s linear infinite reverse; opacity: .45; }
-    .waves .w3 { animation: slide 7s linear infinite; opacity: .6; height: 70%; }
+    .waves .w1 { animation: slide 14s linear infinite; opacity: .3; }
+    .waves .w2 { animation: slide 10s linear infinite reverse; opacity: .4; }
+    .waves .w3 { animation: slide 7s linear infinite; opacity: .55; height: 70%; }
 
     @keyframes slide { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-    @keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
-    @keyframes rise {
-      0% { transform: translateY(0) scale(.6); opacity: 0; }
-      15% { opacity: 1; }
-      100% { transform: translateY(-55vh) scale(1); opacity: 0; }
-    }
+    @keyframes shimmer { to { transform: translateX(100%); } }
+    @keyframes pulse { 50% { opacity: .35; } }
 
     /* Respect "reduce motion" accessibility settings */
     @media (prefers-reduced-motion: reduce) {
@@ -141,29 +141,28 @@
   </style>
 </head>
 <body>
-  <div id="loader" role="status" aria-live="polite">
-    <div class="drop">
-      <div class="fill back" id="fillBack">
-        <svg viewBox="0 0 200 16" preserveAspectRatio="none"><path d="M0 8 Q25 0 50 8 T100 8 T150 8 T200 8 V16 H0Z" fill="#29C5F6"/></svg>
-        <div class="body"></div>
+  <div id="loader" role="status" aria-live="polite" aria-label="Loading AgosAlert">
+    <div class="progress"><span id="loaderBar"></span></div>
+
+    <div class="page">
+      <img class="logo" src="assets/assets/images/logo_icon_dark.png" alt="AgosAlert"
+           onerror="this.outerHTML='<div class=&quot;logo-fallback&quot;></div>'">
+      <div class="tagline">Flood Monitoring &amp; Emergency Assistance</div>
+
+      <div class="card" aria-hidden="true">
+        <div class="sk line" style="width:170px;height:22px"></div>
+        <div class="sk line" style="width:140px;height:12px;margin-top:10px"></div>
+        <div class="sk" style="height:54px;margin-top:22px"></div>
+        <div class="sk" style="height:54px;margin-top:12px"></div>
+        <div class="sk line" style="width:110px;height:12px;margin:18px 0 18px auto"></div>
+        <div class="sk btn" style="height:54px"></div>
+        <div class="row" style="margin:20px 0"><div class="divider"></div><div class="divider"></div></div>
+        <div class="sk outline" style="height:52px"></div>
+        <div class="sk line" style="width:120px;height:12px;margin:22px auto 6px"></div>
       </div>
-      <div class="fill front" id="fillFront">
-        <svg viewBox="0 0 200 16" preserveAspectRatio="none"><path d="M0 8 Q25 16 50 8 T100 8 T150 8 T200 8 V16 H0Z" fill="#29C5F6"/></svg>
-        <div class="body"></div>
-      </div>
-      <img src="assets/assets/images/logo_icon_dark.png" alt=""
-           onerror="this.outerHTML='<div class=&quot;fallback&quot;>≋</div>'">
+
+      <div class="status"><span class="dot"></span><span id="loaderStatus">Loading AgosAlert…</span></div>
     </div>
-
-    <div class="brand"><span class="agos">agos</span>alert<span class="dot">.</span></div>
-    <div class="status" id="loaderStatus">Checking the waters…</div>
-    <div class="bar"><span id="loaderBar"></span></div>
-
-    <div class="bubble" style="left:18%; width:10px; height:10px; animation-duration:6s; animation-delay:.2s"></div>
-    <div class="bubble" style="left:32%; width:6px;  height:6px;  animation-duration:5s; animation-delay:1.6s"></div>
-    <div class="bubble" style="left:58%; width:12px; height:12px; animation-duration:7s; animation-delay:.8s"></div>
-    <div class="bubble" style="left:74%; width:7px;  height:7px;  animation-duration:5.5s; animation-delay:2.4s"></div>
-    <div class="bubble" style="left:88%; width:9px;  height:9px;  animation-duration:6.5s; animation-delay:3.2s"></div>
 
     <div class="waves" aria-hidden="true">
       <svg class="w1" viewBox="0 0 1440 150" preserveAspectRatio="none"><path fill="#2D7DD2" d="M0 60 C180 20 540 100 720 60 C900 20 1260 100 1440 60 V150 H0Z"/></svg>
