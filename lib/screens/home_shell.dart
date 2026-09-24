@@ -381,18 +381,18 @@ class _TabLayer extends StatelessWidget {
       ignoring: !active,
       child: ExcludeSemantics(
         excluding: !active,
-        child: TickerMode(
-          enabled: active,
-          child: AnimatedOpacity(
-            opacity: active ? 1 : 0,
+        child: AnimatedOpacity(
+          opacity: active ? 1 : 0,
+          duration: duration,
+          curve: Curves.easeOut,
+          child: AnimatedSlide(
+            offset: active ? Offset.zero : const Offset(0, 0.02),
             duration: duration,
-            curve: Curves.easeOut,
-            child: AnimatedSlide(
-              offset: active ? Offset.zero : const Offset(0, 0.02),
-              duration: duration,
-              curve: Curves.easeOutCubic,
-              child: child,
-            ),
+            curve: Curves.easeOutCubic,
+            // Pause only the tab's own animations. TickerMode must stay
+            // INSIDE the fade: wrapped around it, it also froze the
+            // fade-out, so old tabs stayed visible on top of each other.
+            child: TickerMode(enabled: active, child: child),
           ),
         ),
       ),

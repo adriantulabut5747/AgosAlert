@@ -39,6 +39,36 @@ void main() {
     }
   });
 
+  // Regression test: switching tabs must hide the previous tab
+  // (it once stayed visible on top of the new one).
+  testWidgets('Switching tabs hides the previous tab', (tester) async {
+    await pumpPhone(tester, const HomeShell());
+    await tester.tap(find.text('More').last);
+    await tester.pump(const Duration(seconds: 1));
+    await tester.tap(find.text('Home').last);
+    await tester.pump(); // rebuild: the fade starts here
+    await tester.pump(const Duration(seconds: 1)); // let it finish
+
+    // The tab's fade is the nearest AnimatedOpacity above the text; read
+    // the value it is actually drawing (from its inner FadeTransition).
+    double opacityOf(String text) {
+      final tabFade = find
+          .ancestor(of: find.text(text), matching: find.byType(AnimatedOpacity))
+          .first;
+      return tester
+          .widget<FadeTransition>(
+            find
+                .descendant(of: tabFade, matching: find.byType(FadeTransition))
+                .first,
+          )
+          .opacity
+          .value;
+    }
+
+    expect(opacityOf('Log out'), 0); // More tab is hidden
+    expect(opacityOf('Quick actions'), 1); // Home tab is visible
+  });
+
   for (final (name, page) in [
     ('Evacuation centers', const EvacuationCentersScreen()),
     ('Report incident', const ReportIncidentScreen()),
