@@ -29,7 +29,7 @@ class _MapTabState extends State<MapTab> {
 
   void _zoom(double by) {
     final cam = _map.camera;
-    _map.move(cam.center, (cam.zoom + by).clamp(11, 18));
+    _map.move(cam.center, (cam.zoom + by).clamp(13, 18));
   }
 
   @override
@@ -47,7 +47,11 @@ class _MapTabState extends State<MapTab> {
               options: MapOptions(
                 initialCenter: kMabalacatCenter,
                 initialZoom: _startZoom,
-                minZoom: 11,
+                minZoom: 13,
+                // Keep the whole view inside Mabalacat City.
+                cameraConstraint: CameraConstraint.contain(
+                  bounds: kMabalacatBounds,
+                ),
                 maxZoom: 18,
                 backgroundColor: c.surfaceAlt,
                 interactionOptions: const InteractionOptions(

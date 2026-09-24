@@ -3,34 +3,45 @@ import 'package:flutter_map/flutter_map.dart';
 
 import '../theme.dart';
 
-/// OpenStreetMap tiles: free, no API key. (CARTO used to be free too, but
-/// now stamps "API KEY REQUIRED" on every tile.)
+/// Map background from Esri's free "Canvas" basemaps: no API key, and
+/// they work from any website. Two layers each: the map itself, then
+/// street/place names on top. Light gray in light mode, dark gray in dark
+/// mode.
 ///
-/// OpenStreetMap only has a light style, so in dark mode we recolor it:
-/// invert the colors, then turn the hue back so water stays blue.
+/// Why not the others:
+/// - CARTO stamps "API KEY REQUIRED" on its free tiles.
+/// - OpenStreetMap blocks flutter_map web apps ("Access blocked").
 class AppTileLayer extends StatelessWidget {
   const AppTileLayer({super.key});
 
-  static const credits = '© OpenStreetMap contributors';
+  static const credits = 'Esri, HERE, Garmin, © OpenStreetMap contributors';
+
+  static const _base =
+      'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas';
 
   @override
   Widget build(BuildContext context) {
-    final tiles = TileLayer(
-      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-      // OpenStreetMap asks apps to identify themselves.
-      userAgentPackageName: 'com.agosalert.app',
-      maxNativeZoom: 19,
+    final style = AppColors(context).isDark ? 'Dark' : 'Light';
+    return Stack(
+      children: [
+        _layer('$_base/World_${style}_Gray_Base/MapServer/tile/{z}/{y}/{x}'),
+        _layer(
+          '$_base/World_${style}_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
+        ),
+      ],
     );
-    if (!AppColors(context).isDark) return tiles;
-    return ColorFiltered(colorFilter: _darkMap, child: tiles);
   }
 
-  // Invert + rotate hue 180° (so blues stay blue), slightly dimmed to
-  // match the app's navy background.
-  static const _darkMap = ColorFilter.matrix(<double>[
-    0.52, -1.29, -0.13, 0, 225, //
-    -0.38, -0.39, -0.13, 0, 225, //
-    -0.38, -1.29, 0.77, 0, 235, //
-    0, 0, 0, 1, 0, //
-  ]);
+  TileLayer _layer(String url) => TileLayer(
+    key: ValueKey(url),
+    urlTemplate: url,
+    userAgentPackageName: 'com.agosalert.app',
+    // Esri's canvas maps stop at zoom 16; closer zooms enlarge those tiles.
+    maxNativeZoom: 16,
+    // No on-device tile cache: not needed for the demo, and it keeps
+    // tests working (the cache needs a phone-only plugin).
+    tileProvider: NetworkTileProvider(
+      cachingProvider: const DisabledMapCachingProvider(),
+    ),
+  );
 }

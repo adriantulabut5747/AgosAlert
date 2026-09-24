@@ -46,10 +46,13 @@ live site his groupmates screenshot — use a branch for risky changes.
 
 ## Known issues
 
-- Maps use `flutter_map` with OpenStreetMap tiles (`lib/widgets/map_tiles.dart`),
-  recolored with a filter in dark mode. Don't switch back to CARTO: it
-  now stamps "API KEY REQUIRED" on its free tiles. When checking a tile
+- Maps use `flutter_map` with Esri's free Canvas tiles (light/dark gray +
+  a labels layer, no key) in `lib/widgets/map_tiles.dart`. Don't use
+  CARTO (stamps "API KEY REQUIRED") or tile.openstreetmap.org (blocks
+  flutter_map web apps with "Access blocked"). When checking a tile
   source, look at the actual image, not just the HTTP status.
+- The Map tab is locked to `kMabalacatBounds` (demo_data.dart) with a
+  minimum zoom of 13. A test checks that it can't be dragged outside.
 - In the dark theme, the dark-navy "alert" in the logos is hard to read.
   Adrian chose to keep it as-is.
 

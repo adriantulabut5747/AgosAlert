@@ -137,7 +137,7 @@ class AboutScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _source(c, 'Weather', 'Open-Meteo (open-meteo.com)'),
-                    _source(c, 'Map data', '© OpenStreetMap contributors'),
+                    _source(c, 'Map', 'Esri, HERE, Garmin, © OpenStreetMap'),
                     _source(
                       c,
                       'Rivers, flood zones, centers',

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
 import 'package:latlong2/latlong.dart';
 
 import '../theme.dart';
@@ -10,6 +11,13 @@ import '../theme.dart';
 /// ============================================================
 
 const LatLng kMabalacatCenter = LatLng(15.2236, 120.5717); // Poblacion
+
+/// The map can't be dragged outside this box (Mabalacat City and a little
+/// margin around it).
+final LatLngBounds kMabalacatBounds = LatLngBounds(
+  const LatLng(15.130, 120.490), // south-west
+  const LatLng(15.300, 120.670), // north-east
+);
 
 const List<String> kBarangays = [
   'Atlu-Bola',

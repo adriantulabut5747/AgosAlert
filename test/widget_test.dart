@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:agosalert/data/demo_data.dart';
 import 'package:agosalert/main.dart';
 import 'package:agosalert/screens/evacuation_centers_screen.dart';
 import 'package:agosalert/screens/home_shell.dart';
 import 'package:agosalert/screens/info_screens.dart';
+import 'package:agosalert/screens/map_tab.dart';
 import 'package:agosalert/screens/report_incident_screen.dart';
 import 'package:agosalert/screens/settings_screen.dart';
 import 'package:agosalert/theme.dart';
@@ -67,6 +70,27 @@ void main() {
 
     expect(opacityOf('Log out'), 0); // More tab is hidden
     expect(opacityOf('Quick actions'), 1); // Home tab is visible
+  });
+
+  // The map must stay inside Mabalacat City, however far you drag it.
+  testWidgets('Map cannot be dragged outside Mabalacat', (tester) async {
+    await pumpPhone(tester, const Scaffold(body: MapTab()));
+    for (final drag in [
+      const Offset(0, 2000), // far north
+      const Offset(0, -4000), // far south
+      const Offset(3000, 0), // far west
+      const Offset(-6000, 0), // far east
+    ]) {
+      await tester.drag(find.byType(FlutterMap), drag);
+      await tester.pump(const Duration(seconds: 1));
+      final view = MapCamera.of(tester.element(find.byType(TileLayer).first))
+          .visibleBounds;
+      const margin = 0.001; // rounding
+      expect(view.north, lessThanOrEqualTo(kMabalacatBounds.north + margin));
+      expect(view.south, greaterThanOrEqualTo(kMabalacatBounds.south - margin));
+      expect(view.west, greaterThanOrEqualTo(kMabalacatBounds.west - margin));
+      expect(view.east, lessThanOrEqualTo(kMabalacatBounds.east + margin));
+    }
   });
 
   for (final (name, page) in [
