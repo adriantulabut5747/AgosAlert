@@ -9,3 +9,21 @@ node_modules/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Flutter/Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+*.iml
+.idea/
+
+# Xcode/iOS
+ios/Flutter/ephemeral/
+ios/Pods/
+
+# Android
+android/.gradle/
+android/local.properties
+**/android/app/*.jks
