@@ -138,7 +138,6 @@ class AboutScreen extends StatelessWidget {
                   children: [
                     _source(c, 'Weather', 'Open-Meteo (open-meteo.com)'),
                     _source(c, 'Map data', '© OpenStreetMap contributors'),
-                    _source(c, 'Map style', '© CARTO'),
                     _source(
                       c,
                       'Rivers, flood zones, centers',

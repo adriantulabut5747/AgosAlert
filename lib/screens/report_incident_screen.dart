@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import '../data/demo_data.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/map_tiles.dart';
 import 'assistance_tab.dart';
 
 /// ============================================================
@@ -175,13 +176,7 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
                       ),
                     ),
                     children: [
-                      TileLayer(
-                        urlTemplate: c.isDark
-                            ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
-                            : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-                        subdomains: const ['a', 'b', 'c', 'd'],
-                        userAgentPackageName: 'com.agosalert.app',
-                      ),
+                      const AppTileLayer(),
                       MarkerLayer(
                         markers: [
                           Marker(

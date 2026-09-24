@@ -46,8 +46,10 @@ live site his groupmates screenshot — use a branch for risky changes.
 
 ## Known issues
 
-- The Map tab uses `flutter_map` with CARTO tiles (dark/light match the
-  theme). The old `staticmap.openstreetmap.de` image is gone.
+- Maps use `flutter_map` with OpenStreetMap tiles (`lib/widgets/map_tiles.dart`),
+  recolored with a filter in dark mode. Don't switch back to CARTO: it
+  now stamps "API KEY REQUIRED" on its free tiles. When checking a tile
+  source, look at the actual image, not just the HTTP status.
 - In the dark theme, the dark-navy "alert" in the logos is hard to read.
   Adrian chose to keep it as-is.
 

@@ -6,11 +6,12 @@ import 'package:flutter_map/flutter_map.dart';
 import '../data/demo_data.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/map_tiles.dart';
 import '../widgets/links.dart';
 
 /// ============================================================
 /// MAP TAB — interactive map of Mabalacat City (OpenStreetMap
-/// data, CARTO map style) with flood zones and evacuation centers
+/// tiles, recolored in dark mode) with flood zones and evacuation centers
 /// ============================================================
 class MapTab extends StatefulWidget {
   const MapTab({super.key});
@@ -34,10 +35,6 @@ class _MapTabState extends State<MapTab> {
   @override
   Widget build(BuildContext context) {
     final c = AppColors(context);
-    // Dark map in dark mode, light map in light mode.
-    final tiles = c.isDark
-        ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
-        : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png';
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
@@ -58,12 +55,7 @@ class _MapTabState extends State<MapTab> {
                 ),
               ),
               children: [
-                TileLayer(
-                  key: ValueKey(tiles),
-                  urlTemplate: tiles,
-                  subdomains: const ['a', 'b', 'c', 'd'],
-                  userAgentPackageName: 'com.agosalert.app',
-                ),
+                const AppTileLayer(),
                 if (_showZones)
                   CircleLayer(
                     circles: [
@@ -127,7 +119,7 @@ class _MapTabState extends State<MapTab> {
                         ),
                   ],
                 ),
-                // Map credits (required by OpenStreetMap and CARTO)
+                // Map credits (required by OpenStreetMap)
                 Align(
                   alignment: Alignment.topLeft,
                   child: Container(
@@ -141,7 +133,7 @@ class _MapTabState extends State<MapTab> {
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
-                      '© OpenStreetMap contributors © CARTO',
+                      AppTileLayer.credits,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(color: c.textSecondary, fontSize: 9.5),
