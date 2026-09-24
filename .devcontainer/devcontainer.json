@@ -15,7 +15,7 @@
   // Codespaces auto-forwards it and gives you a clickable preview URL.
   "forwardPorts": [8080],
 
-  "containerEnv": {
+  "remoteEnv": {
     "PATH": "${containerEnv:PATH}:/usr/local/flutter/bin"
   },
 
