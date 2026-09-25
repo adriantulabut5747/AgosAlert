@@ -62,65 +62,126 @@ const Map<String, LatLng> kBarangayPoints = {
   'Tabun': LatLng(15.2477, 120.5659),
 };
 
+/// The flood_*.jpg photos are from the Aug 2023 floods in Apalit,
+/// Pampanga (not the barangays they're shown for), by Wikimedia Commons
+/// user E911a, licensed CC BY-SA 4.0. The license requires this credit.
+const String kFloodPhotoCredit =
+    'Sample photo · Apalit, Pampanga, 2023 · E911a, CC BY-SA 4.0';
+
 class FloodZone {
   final String barangay;
   final LatLng point;
   final RiskLevel risk;
-  final double waterLevel; // meters
+  final double depthCm; // estimated street flood depth
   final String note;
+  final String updated;
+  // Thumbs up/down from other users (sample numbers). The user's own
+  // vote is NOT included; it lives in [myVotes].
+  final int upVotes;
+  final int downVotes;
+  // How long ago the pin's photo was taken. Pins are removed
+  // [kPinLifetime] after that.
+  final Duration photoAge;
   const FloodZone(
     this.barangay,
     this.point,
     this.risk,
-    this.waterLevel,
+    this.depthCm,
     this.note,
-  );
+    this.updated, {
+    this.upVotes = 0,
+    this.downVotes = 0,
+    this.photoAge = Duration.zero,
+  });
+
+  /// Optional photo, e.g. assets/images/flood_dau.jpg or
+  /// flood_santa_ines.jpg. Missing files show a placeholder.
+  String get photo =>
+      'assets/images/flood_${barangay.toLowerCase().replaceAll(' ', '_')}.jpg';
+
+  // Worked out from "now" each time, so the sample dates stay recent.
+  DateTime get photoTakenAt => DateTime.now().subtract(photoAge);
+  Duration get timeLeft => kPinLifetime - photoAge;
+  bool get expired => timeLeft <= Duration.zero;
 }
 
+/// Pins users post are deleted this long after their photo was taken, so
+/// old photos don't look like what's happening now.
+const Duration kPinLifetime = Duration(days: 14);
+
+/// Sample pins. Use [activeFloodZones] to show them: it skips old ones.
 const List<FloodZone> kFloodZones = [
   FloodZone(
     'Dau',
     LatLng(15.1761, 120.5887),
     RiskLevel.high,
-    1.8,
-    'Low-lying streets near the creek are flooded knee-deep.',
+    65,
+    'Low-lying streets near the creek are flooded above the knee.',
+    '12 min ago',
+    upVotes: 42,
+    downVotes: 3,
+    photoAge: Duration(hours: 5),
   ),
   FloodZone(
     'Tabun',
     LatLng(15.2477, 120.5659),
     RiskLevel.moderate,
-    0.9,
+    40,
     'Water rising near the Sacobia riverbank.',
+    '25 min ago',
+    upVotes: 27,
+    downVotes: 5,
+    photoAge: Duration(days: 1, hours: 3),
   ),
   FloodZone(
     'Mabiga',
     LatLng(15.2133, 120.5799),
     RiskLevel.moderate,
-    0.7,
+    30,
     'Some roads have ankle-to-knee deep water.',
+    '18 min ago',
+    upVotes: 19,
+    downVotes: 2,
+    photoAge: Duration(days: 3, hours: 7),
   ),
   FloodZone(
     'Duquit',
     LatLng(15.1779, 120.6014),
     RiskLevel.normal,
-    0.2,
+    0,
     'No flooding reported.',
+    '1 hr ago',
+    upVotes: 8,
+    downVotes: 1,
+    photoAge: Duration(days: 9, hours: 2),
   ),
   FloodZone(
     'Dolores',
     LatLng(15.2161, 120.5589),
     RiskLevel.normal,
-    0.3,
+    5,
     'Minor puddles only.',
+    '40 min ago',
+    upVotes: 11,
+    downVotes: 0,
+    photoAge: Duration(days: 12, hours: 20),
   ),
   FloodZone(
     'Camachiles',
     LatLng(15.1924, 120.5861),
     RiskLevel.moderate,
-    0.6,
+    25,
     'Drainage is slow along the main road.',
+    '30 min ago',
+    upVotes: 15,
+    downVotes: 4,
+    photoAge: Duration(days: 6),
   ),
 ];
+
+/// Flood pins that haven't reached [kPinLifetime] yet.
+Iterable<FloodZone> get activeFloodZones =>
+    kFloodZones.where((z) => !z.expired);
 
 class River {
   final String name;
@@ -130,7 +191,13 @@ class River {
   final double change; // meters in the last hour (+ rising, - falling)
   const River(this.name, this.location, this.level, this.critical, this.change);
 
+  // How full the river is compared to its danger level, from 0.0 to 1.0.
+  // Example: Sacobia 4.2 m / 5.0 m critical = 0.84 (84%).
+  // clamp keeps it at 1.0 even if the river goes above critical, so the
+  // progress bar on Home never draws past 100%.
   double get ratio => (level / critical).clamp(0.0, 1.0);
+  // 80% or more of critical = High, 50% or more = Moderate, else Normal.
+  // (A chained "a ? b : c ? d : e" works like if / else if / else.)
   RiskLevel get risk => ratio >= 0.8
       ? RiskLevel.high
       : ratio >= 0.5
@@ -252,6 +319,10 @@ class AppAlert {
   });
 }
 
+/// Who posts the app's own alerts. The admins aren't confirmed yet (they
+/// may be Mabalacat officials later), so nothing claims to be official.
+const String kAdminSource = 'Admin (unofficial demo)';
+
 const List<AppAlert> kAlerts = [
   AppAlert(
     id: 'a1',
@@ -266,7 +337,7 @@ const List<AppAlert> kAlerts = [
       'Evacuate to Dau Elementary School if water keeps rising',
     ],
     area: 'Brgy. Dau',
-    source: 'Mabalacat CDRRMO',
+    source: kAdminSource,
     ago: Duration(minutes: 12),
   ),
   AppAlert(
@@ -294,7 +365,7 @@ const List<AppAlert> kAlerts = [
     details: 'A section of MacArthur Highway near Dau is flooded and not passable to light vehicles. Traffic is being rerouted.',
     actions: ['Use an alternate route', 'Follow traffic enforcers on site'],
     area: 'Brgy. Dau',
-    source: 'Mabalacat Traffic Management',
+    source: kAdminSource,
     ago: Duration(hours: 2, minutes: 20),
   ),
   AppAlert(
@@ -309,7 +380,7 @@ const List<AppAlert> kAlerts = [
       'Register at the help desk on arrival',
     ],
     area: 'Brgy. Mabiga',
-    source: 'Mabalacat CDRRMO',
+    source: kAdminSource,
     ago: Duration(hours: 4),
   ),
   AppAlert(
@@ -321,16 +392,42 @@ const List<AppAlert> kAlerts = [
     details: 'Floodwater in Brgy. Duquit has fully subsided. Roads are now passable. Watch out for debris and mud.',
     actions: ['Watch out for debris', 'Do not touch fallen power lines'],
     area: 'Brgy. Duquit',
-    source: 'Mabalacat CDRRMO',
+    source: kAdminSource,
     ago: Duration(days: 1, hours: 2),
   ),
 ];
 
 /// IDs of alerts the user has opened (shared by the Alerts tab and the bell).
+/// Starts with 'a5' already read, so the demo shows both read and unread
+/// alerts. It lives only in memory: reloading the page resets it.
+///
+/// A ValueNotifier holds a value and tells every ValueListenableBuilder
+/// watching it to rebuild when `.value` is set to something NEW. So to
+/// mark an alert as read, set a new Set, e.g.
+///   readAlerts.value = {...readAlerts.value, alert.id};
+/// Calling readAlerts.value.add(id) would change the set without
+/// notifying anyone, and the bell badge wouldn't update.
 final ValueNotifier<Set<String>> readAlerts = ValueNotifier({'a5'});
 
+/// How many alerts aren't in [readAlerts] yet (the number on the bell).
 int get unreadAlertCount =>
     kAlerts.where((a) => !readAlerts.value.contains(a.id)).length;
+
+/// True after "Continue as guest". Guests can look around but can't vote
+/// or upload. Set by the login screen; there are no real accounts yet.
+bool isGuest = false;
+
+enum Vote { up, down }
+
+/// The user's thumbs up/down on flood pins, by barangay. Missing = no
+/// vote. Like [readAlerts]: set a NEW map to change it, and it resets
+/// when the page reloads.
+final ValueNotifier<Map<String, Vote>> myVotes = ValueNotifier({});
+
+/// Thumbs up/down other users gave on this user's uploads (the profile
+/// card). Sample numbers until there's a server.
+const int kMyUpVotesReceived = 128;
+const int kMyDownVotesReceived = 6;
 
 class Hotline {
   final String name;
@@ -422,7 +519,7 @@ const List<(String, String)> kFaqs = [
   ),
   (
     'Is the flood outlook an official warning?',
-    'No. It is estimated from the rainfall forecast. Always follow official warnings from PAGASA and the Mabalacat CDRRMO.',
+    'No. It is estimated from the rainfall forecast. Always follow official warnings from PAGASA and local authorities.',
   ),
   (
     'Are the river levels and flood zones live?',

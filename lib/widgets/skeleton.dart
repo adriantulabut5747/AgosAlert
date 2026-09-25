@@ -37,6 +37,15 @@ class _ShimmerState extends State<Shimmer> with SingleTickerProviderStateMixin {
     final shine = c.isDark
         ? Color.lerp(c.surfaceAlt, Colors.white, 0.08)!
         : Colors.white;
+    // ShaderMask repaints the child's pixels with a gradient.
+    // BlendMode.srcATop = only where the child already has something drawn
+    // (the gray boxes), so the gaps between boxes stay see-through.
+    //
+    // The gradient is gray -> light -> gray: a light band. Alignment -1 is
+    // the left edge and +1 the right edge. x goes from -1.5 to +1.5 as the
+    // animation runs 0 -> 1, so the band starts just off the left side and
+    // ends just off the right side. The ±0.6 is the band's width, and the
+    // -0.3 / +0.3 on the y-axis tilts it diagonally.
     return AnimatedBuilder(
       animation: _ctrl,
       child: widget.child,
@@ -100,10 +109,19 @@ class DeferredView extends StatefulWidget {
 }
 
 class _DeferredViewState extends State<DeferredView> {
+  // Starts the download once and remembers it. (If we called widget.load()
+  // inside build(), every rebuild would start it again.) Not `final`,
+  // because the "Try again" button replaces it with a new attempt.
   late Future<void> _loading = widget.load();
 
   @override
   Widget build(BuildContext context) {
+    // FutureBuilder rebuilds when the download finishes. Three cases:
+    //   still downloading -> show the skeleton placeholder
+    //   failed (offline)  -> show the error message with "Try again"
+    //   done              -> build the real screen
+    // AnimatedSwitcher cross-fades between them. The keys ('ready',
+    // 'error') let it tell the three apart so it knows when to fade.
     return FutureBuilder<void>(
       future: _loading,
       builder: (context, snap) {
@@ -151,6 +169,8 @@ class _DeferredViewState extends State<DeferredView> {
               style: TextStyle(color: c.textSecondary, fontSize: 12.5),
             ),
             const SizedBox(height: 14),
+            // Start a fresh download attempt. setState makes the
+            // FutureBuilder watch the new one (and show the skeleton again).
             FilledButton.tonal(
               onPressed: () => setState(() => _loading = widget.load()),
               child: const Text('Try again'),

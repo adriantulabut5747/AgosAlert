@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../data/demo_data.dart';
 import '../services/prefetch.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
@@ -23,21 +24,32 @@ class _LoginScreenState extends State<LoginScreen>
   // `static` so the notice stays closed for the rest of the visit, even
   // after logging out and coming back to this screen.
   static bool _demoNoticeClosed = false;
+  // Drives the "breathing" glow behind the logo. repeat(reverse: true)
+  // goes 0 -> 1 over 3 s, then back 1 -> 0 over 3 s, forever.
   late final AnimationController _glow = AnimationController(
     vsync: this,
     duration: const Duration(seconds: 3),
   )..repeat(reverse: true);
 
+  // initState runs once, when this screen is first created (before it is
+  // drawn). Good for one-time setup.
   @override
   void initState() {
     super.initState();
     // Once this screen is showing, quietly start downloading what Home,
     // the Map tab, and Report incident need, so they're ready after Login.
+    // addPostFrameCallback = "run this right after the first frame is
+    // drawn", so the downloads never delay the login screen appearing.
+    // `mounted` is false if the screen was already closed by then.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) prefetchAppContent(dark: AppColors(context).isDark);
     });
   }
 
+  // Runs after initState, and again whenever something this screen reads
+  // from `context` changes, like the theme. So when the user switches
+  // dark/light, the matching logo images get loaded early too. (precache
+  // can't go in initState: `context` isn't fully ready there yet.)
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -50,11 +62,18 @@ class _LoginScreenState extends State<LoginScreen>
     super.dispose();
   }
 
-  Future<void> _login() async {
+  Future<void> _login({bool guest = false}) async {
+    isGuest = guest;
+    // A different person may be logging in: forget the last one's votes.
+    myVotes.value = {};
     setState(() => _loading = true);
     // Short fake delay so the button's loading state is visible.
     await Future.delayed(const Duration(milliseconds: 700));
+    // After an `await`, the screen might have been closed in the meantime;
+    // using its context then would crash, so stop if it's gone.
     if (!mounted) return;
+    // pushReplacement (not push): the login screen is REMOVED and Home
+    // takes its place, so the back button doesn't return to login.
     Navigator.of(context).pushReplacement(slideRoute(const HomeShell()));
   }
 
@@ -153,7 +172,10 @@ class _LoginScreenState extends State<LoginScreen>
             constraints: const BoxConstraints(maxWidth: 420),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              // Fades out smoothly when closed.
+              // Fades out smoothly when closed. When _demoNoticeClosed
+              // becomes true, the child switches from the card to an empty
+              // SizedBox; the transition fades the card AND shrinks its
+              // height (SizeTransition) at the same time.
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 300),
                 transitionBuilder: (child, anim) => FadeTransition(
@@ -197,7 +219,8 @@ class _LoginScreenState extends State<LoginScreen>
                 const SizedBox(height: 2),
                 Text(
                   'Just tap Login, no email or password needed. '
-                  'There\'s no backend yet, so nothing is saved or sent.',
+                  'There\'s no backend yet, so nothing is saved or sent. '
+                  'Unofficial: not from the Mabalacat City government.',
                   style: TextStyle(
                     color: c.textSecondary,
                     fontSize: 12,
@@ -225,7 +248,11 @@ class _LoginScreenState extends State<LoginScreen>
       alignment: Alignment.topCenter,
       clipBehavior: Clip.none,
       children: [
-        // Soft breathing light behind the round part of the logo
+        // Soft breathing light behind the round part of the logo.
+        // Its center opacity goes between 0.16 and 0.30
+        // (0.16 + 0.14 * _glow.value), fading to 0 at the edge.
+        // top: -50 lets it stick out above the logo (Clip.none above
+        // allows drawing outside the Stack).
         Positioned(
           top: -50,
           child: AnimatedBuilder(
@@ -401,7 +428,7 @@ class _LoginScreenState extends State<LoginScreen>
           const SizedBox(height: 8),
           Center(
             child: TextButton(
-              onPressed: _login,
+              onPressed: () => _login(guest: true),
               child: Text(
                 'Continue as guest',
                 style: TextStyle(
@@ -416,4 +443,85 @@ class _LoginScreenState extends State<LoginScreen>
       ),
     );
   }
+}
+
+/// Popup for guests who tap something only logged-in users can do, like
+/// voting. [action] finishes the title, e.g. 'vote' -> "Log in to vote".
+/// "Log in" goes back to the login screen (removing every screen behind
+/// it, like logging out).
+Future<void> showLoginRequired(BuildContext context, {required String action}) {
+  return showGeneralDialog(
+    context: context,
+    barrierDismissible: true,
+    barrierLabel: 'Close',
+    barrierColor: Colors.black.withValues(alpha: 0.5),
+    transitionDuration: const Duration(milliseconds: 250),
+    pageBuilder: (dialogContext, _, _) {
+      final c = AppColors(dialogContext);
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Material(
+            color: c.surface,
+            borderRadius: BorderRadius.circular(28),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 28, 24, 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const IconBadge(Icons.lock_rounded, kSkyBlue, size: 60),
+                  const SizedBox(height: 14),
+                  Text(
+                    'Log in to $action',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: c.textPrimary,
+                      fontSize: 19,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Guests can only view. Log in or sign up to join in '
+                    'and help your community.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: c.textSecondary,
+                      fontSize: 13,
+                      height: 1.45,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  GradientButton(
+                    label: 'Log in',
+                    icon: Icons.arrow_forward_rounded,
+                    onPressed: () => Navigator.of(dialogContext)
+                        .pushAndRemoveUntil(
+                          slideRoute(const LoginScreen()),
+                          (_) => false,
+                        ),
+                  ),
+                  const SizedBox(height: 4),
+                  TextButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    child: Text(
+                      'Not now',
+                      style: TextStyle(color: c.textSecondary),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    },
+    transitionBuilder: (_, anim, _, child) => FadeTransition(
+      opacity: anim,
+      child: ScaleTransition(
+        scale: Tween(begin: 0.95, end: 1.0).animate(anim),
+        child: child,
+      ),
+    ),
+  );
 }

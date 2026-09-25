@@ -27,3 +27,6 @@ ios/Pods/
 android/.gradle/
 android/local.properties
 **/android/app/*.jks
+
+# Group research papers: keep them out of the public repo
+lib/screens/research/

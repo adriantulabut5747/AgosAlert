@@ -100,6 +100,12 @@
       overflow: hidden;
       animation: bob 3.2s ease-in-out infinite;
     }
+    /* The water inside the drop. It starts fully below the circle
+       (top: 100% = pushed all the way down, so hidden by overflow: hidden
+       on .drop). flutter_bootstrap.js lowers `top` at each loading step,
+       which raises the water; `transition` makes that rise smooth.
+       It is twice as wide as the circle (200%) so it can keep sliding
+       sideways (the `slide` animation) without its edge ever showing. */
     .drop .fill {
       position: absolute; left: -50%; width: 200%; height: 100%;
       top: 100%;
@@ -146,9 +152,18 @@
     .waves .w2 { animation: slide 10s linear infinite reverse; opacity: .4; }
     .waves .w3 { animation: slide 7s linear infinite; opacity: .55; height: 70%; }
 
+    /* The endless-wave trick: each wave picture is 200% wide and its
+       second half is an exact copy of its first half. Sliding it left by
+       half its width (-50%) ends on a frame that looks identical to the
+       start, so when the animation jumps back to 0 and repeats, you can't
+       see the jump. `reverse` on some layers makes them move the other way. */
     @keyframes slide { from { transform: translateX(0); } to { transform: translateX(-50%); } }
     @keyframes pulse { 50% { opacity: .35; } }
     @keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+    /* Bubble: starts small and invisible, fades in, floats up 55% of the
+       screen height (55vh) while growing, and fades out at the top. Each
+       bubble below has its own speed (animation-duration) and start time
+       (animation-delay), so they don't all rise together. */
     @keyframes rise {
       0% { transform: translateY(0) scale(.6); opacity: 0; }
       15% { opacity: 1; }

@@ -39,6 +39,10 @@ class GradientBackground extends StatelessWidget {
     );
   }
 
+  // One soft colored circle: strong color in the middle, fading to fully
+  // transparent at the edge (RadialGradient). Negative top/left/right
+  // values push it partly off-screen so only a corner of the glow shows.
+  // IgnorePointer makes taps pass straight through it to the content.
   Widget _glow(
     AppColors c, {
     double? top,
@@ -143,6 +147,7 @@ class BrandLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Index into the _light/_dark lists: 0 = round icon, 1 = wordmark.
     final i = wordmark ? 1 : 0;
     final dark = AppColors(context).isDark;
     final first = dark ? _dark[i] : _light[i];
@@ -172,6 +177,10 @@ class GlassCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = AppColors(context);
+    // BackdropFilter blurs whatever is BEHIND the card (not the card
+    // itself), which gives the frosted-glass look. ClipRRect limits that
+    // blur to the card's rounded shape; without it the blur would spread
+    // over the whole screen.
     return ClipRRect(
       borderRadius: BorderRadius.circular(24),
       child: BackdropFilter(
@@ -261,10 +270,19 @@ class PressableScale extends StatefulWidget {
 }
 
 class _PressableScaleState extends State<PressableScale> {
+  // True while a finger (or mouse button) is held down on the widget.
   bool _down = false;
 
   @override
   Widget build(BuildContext context) {
+    // MouseRegion: shows the hand cursor on desktop browsers, but only when
+    // there's actually something to tap.
+    // GestureDetector: onTapDown sets _down = true (shrink), onTapUp and
+    // onTapCancel (finger slid away) set it back to false (grow back).
+    // setState() tells Flutter to rebuild, and AnimatedScale smoothly
+    // animates between 97% and 100% size over 120 ms.
+    // HitTestBehavior.opaque: taps on empty/transparent spots inside the
+    // child still count, not just taps on painted pixels.
     return MouseRegion(
       cursor: widget.onTap != null
           ? SystemMouseCursors.click
@@ -307,10 +325,20 @@ class _FadeSlideInState extends State<FadeSlideIn>
   static const _run = Duration(milliseconds: 520);
   // The delay is built into the animation (it waits during the first part)
   // instead of using a timer, so nothing is left pending in tests.
+  //
+  // AnimationController = a number that goes from 0.0 to 1.0 over
+  // `duration`. `vsync: this` (from SingleTickerProviderStateMixin) ties
+  // it to the screen's refresh so it pauses when the widget is off-screen.
+  // `late` = created the first time it's used. `..forward()` (the ".."
+  // cascade) starts it right away and still returns the controller.
   late final AnimationController _ctrl = AnimationController(
     vsync: this,
     duration: widget.delay + _run,
   )..forward();
+  // Interval(start, 1) = stay at 0 until `start`, then go 0 -> 1.
+  // Example: delay 200 ms, run 520 ms, total 720 ms.
+  // start = 200 / 720 = 0.28, so for the first 28% of the time nothing
+  // moves (that's the delay), then it fades/slides in over the rest.
   late final Animation<double> _curve = CurvedAnimation(
     parent: _ctrl,
     curve: Interval(
@@ -320,6 +348,8 @@ class _FadeSlideInState extends State<FadeSlideIn>
     ),
   );
 
+  // Stop the controller when the widget is removed from the screen,
+  // otherwise it keeps running in the background (a memory leak).
   @override
   void dispose() {
     _ctrl.dispose();
@@ -328,6 +358,12 @@ class _FadeSlideInState extends State<FadeSlideIn>
 
   @override
   Widget build(BuildContext context) {
+    // AnimatedBuilder re-runs `builder` on every animation frame.
+    // `child` is passed through separately so the (possibly big) child
+    // widget is built once, and only the Opacity/Transform wrapper changes.
+    // v = _curve.value (0 -> 1):
+    //   opacity  = v                -> invisible to fully visible
+    //   offset y = 24 * (1 - v)     -> starts 24 px lower, ends at 0
     return AnimatedBuilder(
       animation: _curve,
       child: widget.child,
@@ -361,6 +397,10 @@ class GradientButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final glow = gradient.colors.first;
+    // While `loading` is true, onTap is null so the button can't be tapped
+    // twice (e.g. submitting a report twice), and a spinner replaces the
+    // label. If onPressed itself is null, the button is shown half-faded
+    // (opacity 0.5) to look disabled.
     return PressableScale(
       onTap: loading ? null : onPressed,
       child: AnimatedOpacity(
@@ -567,6 +607,9 @@ class LiveDot extends StatefulWidget {
 }
 
 class _LiveDotState extends State<LiveDot> with SingleTickerProviderStateMixin {
+  // Goes 0 -> 1 every 1.6 seconds, forever (..repeat()). This is one of
+  // the never-ending animations that's why tests use pump(), not
+  // pumpAndSettle() (which waits for all animations to finish = never).
   late final AnimationController _ctrl = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 1600),
@@ -588,6 +631,9 @@ class _LiveDotState extends State<LiveDot> with SingleTickerProviderStateMixin {
         builder: (context, _) => Stack(
           alignment: Alignment.center,
           children: [
+            // The expanding "ripple" ring behind the dot. As the value
+            // goes 0 -> 1, it grows from 6 px to 14 px wide while its
+            // opacity drops from 0.5 to 0, so it fades out as it grows.
             Container(
               width: 6 + 8 * _ctrl.value,
               height: 6 + 8 * _ctrl.value,
@@ -596,6 +642,7 @@ class _LiveDotState extends State<LiveDot> with SingleTickerProviderStateMixin {
                 color: widget.color.withValues(alpha: 0.5 * (1 - _ctrl.value)),
               ),
             ),
+            // The solid dot in the middle (doesn't move).
             Container(
               width: 7,
               height: 7,
@@ -644,6 +691,10 @@ class _AnimatedWavesState extends State<AnimatedWaves>
 
   @override
   Widget build(BuildContext context) {
+    // RepaintBoundary: the waves redraw ~60 times a second. This keeps
+    // those redraws separate so the rest of the screen isn't redrawn too
+    // (saves battery / keeps scrolling smooth).
+    // CustomPaint hands the drawing to _WavePainter below.
     return IgnorePointer(
       child: SizedBox(
         height: widget.height,
@@ -656,18 +707,37 @@ class _AnimatedWavesState extends State<AnimatedWaves>
   }
 }
 
+/// Draws the waves by hand on a canvas, one sine wave per color.
 class _WavePainter extends CustomPainter {
   final Animation<double> anim;
   final List<Color> colors;
+  // `repaint: anim` = call paint() again every time the animation ticks,
+  // without rebuilding any widgets (cheaper than setState).
   _WavePainter(this.anim, this.colors) : super(repaint: anim);
 
   @override
   void paint(Canvas canvas, Size size) {
+    // One filled wave shape per color, drawn back to front.
     for (var i = 0; i < colors.length; i++) {
+      // phase = how far the wave has shifted sideways. anim.value goes
+      // 0 -> 1, so this goes 0 -> 2π (one full wave length) per loop.
+      // Even layers move right, odd layers move left (the ±1), and
+      // "+ i * 1.3" starts each layer at a different spot so the waves
+      // don't line up.
       final phase = anim.value * 2 * math.pi * (i.isEven ? 1 : -1) + i * 1.3;
+      // amp = wave height (how tall the bumps are). Later layers are a bit
+      // taller.
       final amp = size.height * (0.12 + i * 0.04);
+      // base = the wave's middle line. Later layers sit lower, so the
+      // front wave is at the bottom (like real layered water).
       final base = size.height * (0.35 + i * 0.18);
+      // Start at the bottom-left corner, trace the wave's top edge from
+      // left to right, then go down to the bottom-right corner and close
+      // the shape, so the area under the wave gets filled.
       final path = Path()..moveTo(0, size.height);
+      // Every 4 px across, compute the wave's height with sin().
+      // x / size.width * 2π * (1.2 + i * 0.3) = how many bumps fit across
+      // the screen (1.2 for the first layer, 1.5 for the next, ...).
       for (double x = 0; x <= size.width; x += 4) {
         final y =
             base +
@@ -682,6 +752,8 @@ class _WavePainter extends CustomPainter {
     }
   }
 
+  // Only needed when a new painter replaces the old one (e.g. the colors
+  // changed with the theme). The animation itself repaints via `repaint:`.
   @override
   bool shouldRepaint(covariant _WavePainter old) => old.colors != colors;
 }
@@ -722,6 +794,8 @@ class PageHeader extends StatelessWidget {
             ],
           ),
         ),
+        // `?trailing` = add `trailing` to the list only if it isn't null
+        // (Dart's "null-aware element"; same as `if (trailing != null) trailing!`).
         ?trailing,
       ],
     );
@@ -787,6 +861,15 @@ class SubpageScaffold extends StatelessWidget {
   }
 }
 
+/// The page transition used when opening a screen on top of another:
+/// the new page fades in while sliding in slightly from the right.
+/// Use it like `Navigator.of(context).push(slideRoute(SomeScreen()))`.
+///
+/// `animation` goes 0 -> 1 when opening (and 1 -> 0 when going back).
+/// Offset(0.06, 0) means "6% of the screen width to the right", so the
+/// page starts a little to the right and slides into place (Offset.zero).
+/// `<T>` is the type of value the page can return when it closes
+/// (`Navigator.pop(context, value)`).
 Route<T> slideRoute<T>(Widget page) {
   return PageRouteBuilder<T>(
     transitionDuration: const Duration(milliseconds: 380),
@@ -823,38 +906,50 @@ Future<T?> showAppSheet<T>(
     useSafeArea: true,
     builder: (sheetContext) {
       final c = AppColors(sheetContext);
+      // viewInsets.bottom = the height of the on-screen keyboard (0 when
+      // it's closed). Padding by that amount pushes the sheet up above the
+      // keyboard so text fields inside it aren't hidden.
       return Padding(
         padding: EdgeInsets.only(
           bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
         ),
-        child: Container(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(sheetContext).size.height * 0.88,
-          ),
-          decoration: BoxDecoration(
-            color: c.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-            border: Border.all(color: c.border),
-          ),
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    margin: const EdgeInsets.only(bottom: 18),
-                    decoration: BoxDecoration(
-                      color: c.textSecondary.withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(4),
+        // The sheet can be at most 88% of the screen height; anything
+        // taller scrolls (SingleChildScrollView below).
+        child: _SwipeDownToClose(
+          child: Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(sheetContext).size.height * 0.88,
+            ),
+            decoration: BoxDecoration(
+              color: c.surface,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(28),
+              ),
+              border: Border.all(color: c.border),
+            ),
+            child: SingleChildScrollView(
+              // Clamping (no bounce) on every phone, so pulling down at the
+              // top reaches _SwipeDownToClose instead of stretching the list.
+              physics: const ClampingScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 18),
+                      decoration: BoxDecoration(
+                        color: c.textSecondary.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
                     ),
                   ),
-                ),
-                builder(sheetContext),
-              ],
+                  builder(sheetContext),
+                ],
+              ),
             ),
           ),
         ),
@@ -888,6 +983,9 @@ Future<void> showSuccessDialog(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // The green check "pops" in: its scale animates 0 -> 1,
+                  // and Curves.elasticOut makes it overshoot a little and
+                  // bounce back, like a spring.
                   TweenAnimationBuilder<double>(
                     tween: Tween(begin: 0, end: 1),
                     duration: const Duration(milliseconds: 700),
@@ -948,6 +1046,8 @@ Future<void> showSuccessDialog(
         ),
       );
     },
+    // How the whole dialog appears: fades in while growing from 90% to
+    // 100% size (easeOutBack = slight overshoot at the end).
     transitionBuilder: (_, anim, _, child) => FadeTransition(
       opacity: anim,
       child: ScaleTransition(
@@ -1109,6 +1209,93 @@ class FieldLabel extends StatelessWidget {
           fontWeight: FontWeight.w800,
           letterSpacing: 1,
         ),
+      ),
+    );
+  }
+}
+
+/// Lets the user close a sheet by swiping it down, like a drawer.
+///
+/// Flutter's sheets can already be dragged down, but not when their
+/// content scrolls (like a flood pin's details): the finger then scrolls
+/// the list instead. So this listens to the list: when it's already at
+/// the top and the finger keeps pulling down (an "overscroll"), the sheet
+/// follows the finger. On release it closes if pulled far or fast enough,
+/// otherwise it slides back up.
+class _SwipeDownToClose extends StatefulWidget {
+  final Widget child;
+  const _SwipeDownToClose({required this.child});
+
+  @override
+  State<_SwipeDownToClose> createState() => _SwipeDownToCloseState();
+}
+
+class _SwipeDownToCloseState extends State<_SwipeDownToClose>
+    with SingleTickerProviderStateMixin {
+  static const _closeDistance = 120.0; // pixels pulled down
+  static const _closeSpeed = 700.0; // pixels per second
+
+  double _offset = 0;
+  bool _closing = false;
+  // Slides the sheet back up to 0 when it was let go too early.
+  late final AnimationController _back = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 200),
+  );
+  late Animation<double> _backTween;
+
+  @override
+  void initState() {
+    super.initState();
+    _back.addListener(() => setState(() => _offset = _backTween.value));
+  }
+
+  @override
+  void dispose() {
+    _back.dispose();
+    super.dispose();
+  }
+
+  bool _onScroll(ScrollNotification n) {
+    // depth 0 = the sheet's own list, not a list inside it.
+    if (_closing || n.depth != 0 || n.metrics.axis != Axis.vertical) {
+      return false;
+    }
+    if (n is OverscrollNotification &&
+        n.dragDetails != null &&
+        n.overscroll < 0) {
+      _back.stop();
+      setState(() => _offset -= n.overscroll);
+    } else if (n is ScrollUpdateNotification &&
+        n.dragDetails != null &&
+        _offset > 0 &&
+        n.scrollDelta! > 0) {
+      // Finger went back up while the sheet was pulled down: raise the
+      // sheet first.
+      setState(() => _offset = (_offset - n.scrollDelta!).clamp(0, 1e9));
+    } else if (n is ScrollEndNotification && _offset > 0) {
+      final speed = n.dragDetails?.primaryVelocity ?? 0;
+      if (_offset > _closeDistance || speed > _closeSpeed) {
+        _closing = true;
+        Navigator.of(context).pop();
+      } else {
+        _backTween = Tween(
+          begin: _offset,
+          end: 0.0,
+        ).animate(CurvedAnimation(parent: _back, curve: Curves.easeOut));
+        _back.forward(from: 0);
+      }
+    }
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return NotificationListener<ScrollNotification>(
+      onNotification: _onScroll,
+      child: Transform.translate(
+        offset: Offset(0, _offset),
+        child: widget.child,
       ),
     );
   }

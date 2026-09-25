@@ -18,6 +18,8 @@ class AssistanceTab extends StatefulWidget {
 }
 
 class _AssistanceTabState extends State<AssistanceTab> {
+  // Go-bag checklist: the positions (0, 1, 2...) in kGoBagItems of the
+  // items the user has ticked. A Set can't hold the same number twice.
   final Set<int> _packed = {};
 
   @override
@@ -220,6 +222,10 @@ class _AssistanceTabState extends State<AssistanceTab> {
                   SizedBox(
                     width: 56,
                     height: 56,
+                    // Go-bag progress circle. With no `begin`, the tween
+                    // starts from wherever it currently is, so ticking an
+                    // item slides the circle smoothly from the old
+                    // percentage to the new one (done / total).
                     child: TweenAnimationBuilder<double>(
                       tween: Tween(end: done / total),
                       duration: const Duration(milliseconds: 400),
@@ -520,7 +526,7 @@ class _AssistanceTabState extends State<AssistanceTab> {
                       context,
                       title: 'Request sent (demo)',
                       message:
-                          'In the full app, the Mabalacat CDRRMO would receive your request for $people ${people == 1 ? 'person' : 'people'} in Brgy. $barangay.\n\nNothing was actually sent. In a real emergency, call 911.',
+                          'In the full app, the Admins would receive your request for $people ${people == 1 ? 'person' : 'people'} in Brgy. $barangay.\n\nNothing was actually sent. In a real emergency, call 911.',
                     );
                   },
                 ),
@@ -594,7 +600,7 @@ class _AssistanceTabState extends State<AssistanceTab> {
                       context,
                       title: 'Report submitted (demo)',
                       message:
-                          'In the full app, this would go to responders in Brgy. $barangay. Nothing was actually sent — contact the PNP directly.',
+                          'In the full app, this would go to the Admins. Nothing was actually sent — contact the police (PNP) directly.',
                     );
                   },
                 ),
@@ -681,7 +687,12 @@ class _SosCard extends StatefulWidget {
   State<_SosCard> createState() => _SosCardState();
 }
 
+// TickerProviderStateMixin (not "Single..."): this widget has TWO
+// animation controllers, and the Single version only allows one.
 class _SosCardState extends State<_SosCard> with TickerProviderStateMixin {
+  // How far the hold has got: 0.0 = not pressed, 1.0 = held for the full
+  // 1.4 seconds. The status listener fires when it reaches the end
+  // ("completed"): it resets the ring to empty and opens the SOS sheet.
   late final AnimationController _hold =
       AnimationController(
         vsync: this,
@@ -692,6 +703,7 @@ class _SosCardState extends State<_SosCard> with TickerProviderStateMixin {
           widget.onActivated();
         }
       });
+  // The ripple rings around the button, looping every 2 seconds.
   late final AnimationController _pulse = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 2000),
@@ -750,6 +762,9 @@ class _SosCardState extends State<_SosCard> with TickerProviderStateMixin {
             ),
           ),
           const SizedBox(width: 12),
+          // Press = start filling the ring (forward). Let go early, or
+          // slide the finger off = the ring drains back to empty (reverse),
+          // so nothing happens. Only a full 1.4 s hold triggers SOS.
           GestureDetector(
             onTapDown: (_) => _hold.forward(),
             onTapUp: (_) => _hold.reverse(),
@@ -759,11 +774,18 @@ class _SosCardState extends State<_SosCard> with TickerProviderStateMixin {
               child: SizedBox(
                 width: 116,
                 height: 116,
+                // Listenable.merge: rebuild when EITHER animation ticks.
+                // The Stack draws three things on top of each other:
+                // ripple rings, the white progress ring, the SOS button.
                 child: AnimatedBuilder(
                   animation: Listenable.merge([_hold, _pulse]),
                   builder: (context, _) => Stack(
                     alignment: Alignment.center,
                     children: [
+                      // Two ripple rings, half a loop apart, so there's
+                      // always one growing. `% 1` keeps t between 0 and 1
+                      // (e.g. 0.7 + 0.5 = 1.2 -> 0.2). Each ring grows from
+                      // 76 px to 116 px while fading from 0.18 to 0.
                       for (final offset in [0.0, 0.5])
                         Builder(
                           builder: (context) {
@@ -780,6 +802,7 @@ class _SosCardState extends State<_SosCard> with TickerProviderStateMixin {
                             );
                           },
                         ),
+                      // The white ring that fills up while holding.
                       SizedBox(
                         width: 92,
                         height: 92,
@@ -791,6 +814,8 @@ class _SosCardState extends State<_SosCard> with TickerProviderStateMixin {
                           backgroundColor: Colors.transparent,
                         ),
                       ),
+                      // The button sinks in (shrinks up to 8%) the longer
+                      // it's held, like pressing a real button.
                       Transform.scale(
                         scale: 1 - _hold.value * 0.08,
                         child: Container(

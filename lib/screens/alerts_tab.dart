@@ -18,21 +18,33 @@ class AlertsTab extends StatefulWidget {
 class _AlertsTabState extends State<AlertsTab> {
   AlertCategory? _filter; // null = all
 
+  // The alerts to show for the selected filter chip. `.where(...)` keeps
+  // only the items for which the check is true (like a filter in Excel).
   List<AppAlert> get _filtered => _filter == null
       ? kAlerts
       : kAlerts.where((a) => a.category == _filter).toList();
 
+  // `{...readAlerts.value, a.id}` = a NEW set with all the old ids plus
+  // this one (the `...` "spreads" the old set's items into the new one).
+  // It has to be a new set, not .add(), or the listeners (bell badge, this
+  // tab) aren't told about the change. See readAlerts in demo_data.dart.
   void _markRead(AppAlert a) => readAlerts.value = {...readAlerts.value, a.id};
 
   @override
   Widget build(BuildContext context) {
     final c = AppColors(context);
+    // The whole list rebuilds whenever an alert is marked read, so the
+    // unread dots, the counter, and the red banner stay up to date.
+    // `read` is the current set of read alert ids.
     return ValueListenableBuilder<Set<String>>(
       valueListenable: readAlerts,
       builder: (context, read, _) {
         final items = _filtered;
+        // Split into "Today" (less than 24 h old) and "Earlier".
         final today = items.where((a) => a.ago.inHours < 24).toList();
         final earlier = items.where((a) => a.ago.inHours >= 24).toList();
+        // Unread High alerts, from ALL categories (ignores the filter).
+        // The first one is shown in the red banner at the top.
         final critical = kAlerts
             .where((a) => a.severity == RiskLevel.high && !read.contains(a.id))
             .toList();
@@ -99,6 +111,8 @@ class _AlertsTabState extends State<AlertsTab> {
             if (today.isNotEmpty) ...[
               const SizedBox(height: 12),
               const FieldLabel('Today'),
+              // Each card waits 50 ms longer than the one above it
+              // (0, 50, 100 ms...), so they appear one after another.
               for (var i = 0; i < today.length; i++)
                 FadeSlideIn(
                   delay: Duration(milliseconds: 50 * i),

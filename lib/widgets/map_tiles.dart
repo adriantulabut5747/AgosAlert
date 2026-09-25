@@ -28,6 +28,9 @@ class AppTileLayer extends StatelessWidget {
     );
   }
 
+  // key: ValueKey(url): when the theme changes, the url changes (Light ->
+  // Dark), so Flutter treats it as a brand-new layer and reloads the
+  // tiles, instead of keeping the old theme's tiles on screen.
   TileLayer _layer(String url) => TileLayer(
     key: ValueKey(url),
     urlTemplate: url,

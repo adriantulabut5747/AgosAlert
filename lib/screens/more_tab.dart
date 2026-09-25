@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../data/demo_data.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import 'evacuation_centers_screen.dart';
@@ -137,87 +138,193 @@ class MoreTab extends StatelessWidget {
             ),
             Padding(
               padding: const EdgeInsets.all(20),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white.withValues(alpha: 0.2),
-                      border: Border.all(color: Colors.white, width: 2.5),
-                    ),
-                    alignment: Alignment.center,
-                    child: const Text(
-                      'AP',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'AC Parcore',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 19,
-                            fontWeight: FontWeight.w800,
-                          ),
+                  Row(
+                    children: [
+                      Container(
+                        width: 64,
+                        height: 64,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withValues(alpha: 0.2),
+                          border: Border.all(color: Colors.white, width: 2.5),
                         ),
-                        const Text(
-                          'ac.parcore@mcc.edu.ph',
-                          style: TextStyle(
-                            color: Color(0xD9FFFFFF),
-                            fontSize: 12.5,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.location_on_rounded,
+                        alignment: Alignment.center,
+                        child: isGuest
+                            ? const Icon(
+                                Icons.person_rounded,
                                 color: Colors.white,
-                                size: 13,
-                              ),
-                              SizedBox(width: 4),
-                              Flexible(
-                                child: Text(
-                                  'Mabalacat City resident',
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                  ),
+                                size: 32,
+                              )
+                            : const Text(
+                                'AP',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w800,
                                 ),
                               ),
-                            ],
-                          ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              isGuest ? 'Guest' : 'AC Parcore',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 19,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            Text(
+                              isGuest
+                                  ? 'Log in to vote and upload'
+                                  : 'ac.parcore@mcc.edu.ph',
+                              style: const TextStyle(
+                                color: Color(0xD9FFFFFF),
+                                fontSize: 12.5,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    isGuest
+                                        ? Icons.visibility_rounded
+                                        : Icons.location_on_rounded,
+                                    color: Colors.white,
+                                    size: 13,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Flexible(
+                                    child: Text(
+                                      isGuest
+                                          ? 'Guest mode · view only'
+                                          : 'Mabalacat City resident',
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
+                  if (!isGuest) ...[const SizedBox(height: 18), _voteStats()],
                 ],
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // Thumbs up/down other people gave on this user's uploads.
+  Widget _voteStats() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Votes on your uploads',
+                  style: TextStyle(
+                    color: Color(0xD9FFFFFF),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Text(
+                'SAMPLE',
+                style: TextStyle(
+                  color: Color(0xB3FFFFFF),
+                  fontSize: 8.5,
+                  letterSpacing: 0.8,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _voteStat(
+                Icons.thumb_up_rounded,
+                kMyUpVotesReceived,
+                'Thumbs up',
+              ),
+              _voteStat(
+                Icons.thumb_down_rounded,
+                kMyDownVotesReceived,
+                'Thumbs down',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _voteStat(IconData icon, int count, String label) {
+    return Expanded(
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.white, size: 18),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$count',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xD9FFFFFF),
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -17,12 +17,20 @@
   function stage(percent, text) {
     if (bar) bar.style.width = percent + '%';
     fills.forEach(function (f, i) {
-      // Back wave sits a little higher than the front one.
+      // `top` is where the water's surface is: 100% = empty (below the
+      // circle), smaller = higher. At 100% loaded it's 100 - 62 = 38%, so
+      // the water fills about the bottom 60% and doesn't cover the logo.
+      // fills[0] is the back wave (i = 0, no change) and fills[1] the
+      // front wave (i = 1), which `i * 4` lifts 4% higher.
       if (f) f.style.top = (100 - percent * 0.62 - i * 4) + '%';
     });
     if (status && text) status.textContent = text;
   }
 
+  // Fills the water to the top, then fades the loading screen out (the
+  // `done` CSS class, 0.4 s later) and finally deletes it from the page
+  // (0.6 s after that, once the fade has finished). `hidden` stops it from
+  // running twice, since both the event and the safety timer call it.
   let hidden = false;
   function hideLoader() {
     if (hidden || !loader) return;
@@ -39,6 +47,10 @@
   // Flutter fires this event after drawing the app for the first time.
   window.addEventListener('flutter-first-frame', hideLoader);
 
+  // Flutter's start-up has 3 steps; we move the progress along after each:
+  //   1. download main.dart.js (the app)  -> onEntrypointLoaded runs
+  //   2. initializeEngine(): start Flutter's drawing engine
+  //   3. runApp(): run main() in lib/main.dart
   _flutter.loader.load({
     onEntrypointLoaded: async function (engineInitializer) {
       stage(60, 'Reading the forecast…');

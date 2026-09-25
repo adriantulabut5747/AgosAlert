@@ -24,6 +24,10 @@ class _HomeTabState extends State<HomeTab> {
   // Usually already downloaded while the user was on the login screen.
   late Future<MabalacatWeather> _weather = MabalacatWeather.load();
 
+  // Pull-to-refresh (drag the list down). RefreshIndicator shows its
+  // spinner until the Future returned here finishes, so we `await` the new
+  // download. setState swaps in the new request, which makes the
+  // FutureBuilder below show the skeleton and then the fresh weather.
   Future<void> _refresh() async {
     final next = MabalacatWeather.load(refresh: true);
     setState(() => _weather = next);
@@ -45,6 +49,12 @@ class _HomeTabState extends State<HomeTab> {
         children: [
           FadeSlideIn(child: _greeting(c)),
           const SizedBox(height: 18),
+          // Shows the weather once the download finishes. `snap` (the
+          // "snapshot") says how the download is going:
+          //   not done yet -> gray placeholder (_WeatherSkeleton)
+          //   failed       -> error card with a Retry button
+          //   done         -> snap.data! is the weather (the `!` means
+          //                   "I know this isn't null here")
           FutureBuilder<MabalacatWeather>(
             future: _weather,
             builder: (context, snap) {
@@ -412,6 +422,9 @@ class _WeatherSection extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            // The big temperature counts up from 0 to the
+                            // real value over 1.1 s. v is the in-between
+                            // number on each frame, rounded for display.
                             TweenAnimationBuilder<double>(
                               tween: Tween(begin: 0, end: w.temperature),
                               duration: const Duration(milliseconds: 1100),
@@ -519,6 +532,8 @@ class _WeatherSection extends StatelessWidget {
 
   Widget _outlook(AppColors c, FloodOutlook o) {
     final color = o.level.color;
+    // Position of the risk level in the enum: normal 0, moderate 1, high 2.
+    // Used by the 3-bar meter below.
     final step = RiskLevel.values.indexOf(o.level);
     return AppCard(
       borderColor: color.withValues(alpha: 0.35),
@@ -572,6 +587,12 @@ class _WeatherSection extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           // Three-step meter: Low · Moderate · High
+          // Bar i fills up (0 -> 1) if i <= step, else stays empty.
+          // E.g. moderate (step 1): bars 0 and 1 fill, bar 2 stays gray.
+          // Each bar's animation is 250 ms longer than the one before, so
+          // they fill one after another from left to right.
+          // FractionallySizedBox(widthFactor: v) = colored part is v * 100%
+          // of the bar's width.
           Row(
             children: [
               for (var i = 0; i < 3; i++) ...[
@@ -614,7 +635,7 @@ class _WeatherSection extends StatelessWidget {
               const SizedBox(width: 5),
               Expanded(
                 child: Text(
-                  'Estimated from the rain forecast. Not an official warning. Follow PAGASA & CDRRMO.',
+                  'Estimated from the rain forecast. Not an official warning. Follow PAGASA & local authorities.',
                   style: TextStyle(color: c.textSecondary, fontSize: 10.5),
                 ),
               ),
@@ -674,7 +695,11 @@ class _WeatherSection extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    Icon(icon, color: now ? Colors.white : c.accent, size: 24),
+                    Icon(
+                      icon,
+                      color: now ? Colors.white : kLogoYellow,
+                      size: 24,
+                    ),
                     Text(
                       '${h.temperature.round()}°',
                       style: TextStyle(
@@ -713,6 +738,11 @@ class _WeatherSection extends StatelessWidget {
   }
 
   Widget _daily(AppColors c, MabalacatWeather w) {
+    // lo = the coldest low of all 5 days, hi = the hottest high.
+    // `.reduce` walks the list keeping the smaller (or bigger) of each
+    // pair, so what's left at the end is the minimum (or maximum).
+    // span = how many degrees the bars below cover. clamp(1, ...) stops a
+    // divide-by-zero if every day had the exact same temperature.
     final lo = w.daily.map((d) => d.min).reduce((a, b) => a < b ? a : b);
     final hi = w.daily.map((d) => d.max).reduce((a, b) => a > b ? a : b);
     final span = (hi - lo).clamp(1, 100);
@@ -743,7 +773,7 @@ class _WeatherSection extends StatelessWidget {
                       ),
                       Icon(
                         weatherInfo(w.daily[i].weatherCode).$2,
-                        color: c.accent,
+                        color: kLogoYellow,
                         size: 20,
                       ),
                       SizedBox(
@@ -767,7 +797,13 @@ class _WeatherSection extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      // Temperature range bar, scaled across all 5 days
+                      // Temperature range bar, scaled across all 5 days.
+                      // The full gray track = lo..hi degrees. The colored
+                      // part starts at this day's min and ends at its max.
+                      // Example: lo 24°, hi 34° (span 10), track 100 px,
+                      // day 26°-32°: left = (26-24)/10*100 = 20 px,
+                      // width = (32-26)/10*100 = 60 px.
+                      // Width is at least 6 px so it never disappears.
                       Expanded(
                         child: LayoutBuilder(
                           builder: (context, box) {
@@ -970,6 +1006,8 @@ class _RiverLevels extends StatelessWidget {
         Row(
           children: [
             Expanded(
+              // The river bar grows from empty to r.ratio (level divided
+              // by critical level, see River in demo_data.dart).
               child: TweenAnimationBuilder<double>(
                 tween: Tween(begin: 0, end: r.ratio),
                 duration: const Duration(milliseconds: 1200),
@@ -1005,7 +1043,10 @@ class _SafetyTips extends StatefulWidget {
 }
 
 class _SafetyTipsState extends State<_SafetyTips> {
+  // viewportFraction: 0.9 = each tip card takes 90% of the width, so the
+  // edge of the next card peeks in and people can tell they can swipe.
   final _page = PageController(viewportFraction: 0.9);
+  // Which card is showing; used to highlight the matching dot below.
   int _current = 0;
 
   @override

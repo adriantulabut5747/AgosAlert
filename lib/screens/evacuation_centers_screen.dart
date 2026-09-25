@@ -22,10 +22,15 @@ class _EvacuationCentersScreenState extends State<EvacuationCentersScreen> {
   @override
   Widget build(BuildContext context) {
     final c = AppColors(context);
+    // Copy the list first ([...kEvacCenters]) because kEvacCenters is a
+    // const list and can't be sorted in place. Then sort nearest first:
+    // compareTo returns negative/zero/positive to say which goes first.
     final centers = [...kEvacCenters]
       ..sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
     final shown = _openOnly ? centers.where((e) => e.open).toList() : centers;
     final openCount = centers.where((e) => e.open).length;
+    // Free spaces across all open centers. fold starts at 0 and adds each
+    // center's (capacity - occupants), like a running total.
     final spaces = centers
         .where((e) => e.open)
         .fold<int>(0, (sum, e) => sum + e.capacity - e.occupants);

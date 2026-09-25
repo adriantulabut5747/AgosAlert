@@ -44,6 +44,12 @@ const LinearGradient kBrandGradient = LinearGradient(
   end: Alignment.bottomRight,
 );
 
+/// Picks the right color for the current theme, so screens don't have to
+/// check dark/light themselves. Usage in a build method:
+///   final c = AppColors(context);
+///   Text('Hi', style: TextStyle(color: c.textPrimary));
+/// Each `get` is a getter: it's used like a variable (c.surface) but runs
+/// the `isDark ? darkColor : lightColor` check every time.
 class AppColors {
   final BuildContext context;
   AppColors(this.context);
@@ -64,6 +70,9 @@ class AppColors {
 }
 
 /// Flood / alert severity, shared by the map, alerts, and river levels.
+/// An "enhanced enum": each level carries its own label, color, and icon,
+/// so any screen can write `zone.risk.color` instead of repeating
+/// "if high then red, if moderate then orange..." everywhere.
 enum RiskLevel {
   normal('Normal', kSafe, Icons.check_circle_rounded),
   moderate('Moderate', kCaution, Icons.error_rounded),
@@ -75,6 +84,10 @@ enum RiskLevel {
   const RiskLevel(this.label, this.color, this.icon);
 }
 
+/// Builds the Flutter theme for light or dark mode. One function for both
+/// so the two themes can't drift apart; only the colors differ.
+/// ColorScheme.fromSeed generates a full matching palette (for buttons,
+/// switches, text fields...) from one "seed" color, our sky blue.
 ThemeData _baseTheme(Brightness b) {
   final dark = b == Brightness.dark;
   final scheme = ColorScheme.fromSeed(

@@ -83,6 +83,33 @@ class AboutScreen extends StatelessWidget {
                   fontStyle: FontStyle.italic,
                 ),
               ),
+              const SizedBox(height: 16),
+              AppCard(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const IconBadge(
+                      Icons.science_rounded,
+                      kLogoYellow,
+                      size: 36,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Unofficial demo. AgosAlert is a school project, not '
+                        'an app of the Mabalacat City government. The Admins '
+                        '(possibly Mabalacat officials) are not confirmed yet, '
+                        'and all data is sample data.',
+                        style: TextStyle(
+                          color: c.textSecondary,
+                          fontSize: 12.5,
+                          height: 1.45,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(height: 24),
               const FieldLabel('Features'),
               AppCard(
@@ -142,6 +169,11 @@ class AboutScreen extends StatelessWidget {
                       c,
                       'Rivers, flood zones, centers',
                       'Sample data (live data coming soon)',
+                    ),
+                    _source(
+                      c,
+                      'Flood photos',
+                      'Apalit, Pampanga (2023) by E911a, Wikimedia Commons, CC BY-SA 4.0',
                     ),
                   ],
                 ),

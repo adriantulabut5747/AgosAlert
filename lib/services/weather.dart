@@ -70,6 +70,10 @@ class MabalacatWeather {
 
   DailyForecast get today => daily.first;
 
+  // The web address we ask for the weather. Uri.https builds it safely:
+  //   https://api.open-meteo.com/v1/forecast?latitude=15.2236&...
+  // `current` / `hourly` / `daily` list which values we want back;
+  // anything not listed isn't sent (smaller, faster download).
   static final _url = Uri.https('api.open-meteo.com', '/v1/forecast', {
     'latitude': '15.2236', // Mabalacat City
     'longitude': '120.5714',
@@ -87,6 +91,12 @@ class MabalacatWeather {
   // The last request, shared by everyone who asks, so the weather can be
   // downloaded while the user is still on the login screen and Home shows
   // it instantly.
+  //
+  // It stores the Future (the request itself), not the finished result.
+  // A Future is a "promise" of a value that arrives later. Storing it
+  // means a second caller that asks while the download is still running
+  // gets the SAME download instead of starting a second one.
+  // `static` = one shared copy for the whole app, not one per object.
   static Future<MabalacatWeather>? _cached;
   static DateTime? _cachedAt;
 
@@ -103,6 +113,9 @@ class MabalacatWeather {
       // If it fails, forget it so the next load() tries again. (Listening
       // here also stops a failed background download from being reported
       // as an uncaught error.)
+      // identical(...) check: only clear the cache if it still holds THIS
+      // request. If a newer request replaced it meanwhile (e.g. the user
+      // pulled to refresh), an old failure mustn't wipe the new one.
       request.then(
         (_) {},
         onError: (Object _) {
@@ -116,20 +129,38 @@ class MabalacatWeather {
     return _cached!;
   }
 
+  /// Downloads the weather once and turns it into a [MabalacatWeather].
+  /// Use [load] instead in the app; it reuses a recent download.
   static Future<MabalacatWeather> fetch() async {
+    // `await` pauses here until the server answers (without freezing the
+    // app). If it takes over 10 seconds, give up with an error instead of
+    // spinning forever on a bad connection.
     final res = await http.get(_url).timeout(const Duration(seconds: 10));
+    // 200 = "OK". Anything else (e.g. 500 = server problem) is an error.
     if (res.statusCode != 200) {
       throw Exception('Weather API returned ${res.statusCode}');
     }
+    // The answer is JSON text. jsonDecode turns it into Dart Maps and
+    // Lists. The shape is roughly:
+    //   { "current": { "temperature_2m": 31.2, ... },
+    //     "hourly":  { "time": ["2026-09-25T00:00", ...],
+    //                  "temperature_2m": [27.1, 26.8, ...], ... },
+    //     "daily":   { same idea, one entry per day } }
+    // So hourly/daily are "columns": item i of every list belongs to the
+    // same hour/day as time[i].
     final json = jsonDecode(res.body) as Map<String, dynamic>;
     final cur = json['current'] as Map<String, dynamic>;
     final h = json['hourly'] as Map<String, dynamic>;
     final d = json['daily'] as Map<String, dynamic>;
     final now = DateTime.parse(cur['time'] as String);
 
+    // Small helper: item i of a list as a number, or 0 if the API sent
+    // null there (it sometimes has gaps).
     num n(List list, int i) => (list[i] as num?) ?? 0;
 
     // Hourly data starts at midnight today; keep the next 12 hours.
+    // Hours before the current hour are skipped with `continue`, and the
+    // loop stops once 12 hours are collected.
     final hTimes = (h['time'] as List).cast<String>();
     final hourly = <HourlyForecast>[];
     for (var i = 0; i < hTimes.length && hourly.length < 12; i++) {
@@ -176,7 +207,16 @@ class MabalacatWeather {
   }
 
   /// A rough flood outlook from today's rain forecast.
-  /// Not an official warning — PAGASA / CDRRMO are the authority.
+  /// Not an official warning — PAGASA and local authorities are.
+  ///
+  /// The rules, checked from worst to best:
+  ///   HIGH     - 30 mm or more of rain today, or a storm (see below) with
+  ///              a 60%+ chance of rain.
+  ///   MODERATE - 10 mm or more, or a 70%+ chance of rain.
+  ///   LOW      - everything else.
+  /// "Stormy" weather codes: 95+ = thunderstorm, 65 = heavy rain,
+  /// 82 = violent rain showers (WMO codes, same as in weatherInfo()).
+  /// The mm limits are our own simple choice, not an official standard.
   FloodOutlook get floodOutlook {
     final sum = today.rainSum;
     final chance = today.rainChance;
@@ -211,6 +251,13 @@ class FloodOutlook {
 }
 
 /// Turns a WMO weather code into a label and icon.
+///
+/// WMO codes are a world standard numbering for weather: 0 clear,
+/// 1-3 clouds, 45-48 fog, 51-57 drizzle, 61-67 rain, 71-77 snow,
+/// 80-82 rain showers, 95-99 thunderstorm. The checks go from low to
+/// high, so each `code <= X` only catches codes the earlier lines didn't.
+/// Returns a record: two values at once, used like
+/// `final (label, icon) = weatherInfo(code);`.
 (String, IconData) weatherInfo(int code, {bool isDay = true}) {
   if (code == 0) {
     return isDay
@@ -242,6 +289,9 @@ List<Color> weatherGradient(int code, bool isDay) {
   return const [Color(0xFF3A5A80), Color(0xFF5B84B1)];
 }
 
+// 24-hour to 12-hour clock: `% 12` is the remainder after dividing by 12
+// (13 -> 1, 23 -> 11). 0 (midnight) and 12 (noon) both give 0, which
+// must show as 12, hence the `== 0 ? 12` part.
 String formatHour(DateTime t) {
   final h = t.hour % 12 == 0 ? 12 : t.hour % 12;
   return '$h ${t.hour < 12 ? 'AM' : 'PM'}';

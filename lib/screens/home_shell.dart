@@ -21,6 +21,9 @@ class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
 
   /// Lets any tab switch tabs: `HomeShell.of(context)?.switchTab(1)`.
+  /// It walks UP the widget tree from [context] until it finds the
+  /// HomeShell's state. Returns null if there's no HomeShell above (the
+  /// `?.` then just skips the call instead of crashing).
   static HomeShellState? of(BuildContext context) =>
       context.findAncestorStateOfType<HomeShellState>();
 
@@ -29,6 +32,8 @@ class HomeShell extends StatefulWidget {
 }
 
 class HomeShellState extends State<HomeShell> {
+  // Which tab is showing right now: 0 Home, 1 Map, 2 Alerts,
+  // 3 Assistance, 4 More (same order as _tabs and _items below).
   int _index = 0;
 
   // Tabs are only built the first time they're opened (so, e.g., the map
@@ -50,6 +55,9 @@ class HomeShellState extends State<HomeShell> {
     const MoreTab(),
   ];
 
+  // One entry per bottom-nav button: (icon when not selected, icon when
+  // selected, label). These are Dart "records", unpacked in _navItem with
+  // `final (outline, filled, label) = _items[i];`.
   static const _items = [
     (Icons.home_outlined, Icons.home_rounded, 'Home'),
     (Icons.map_outlined, Icons.map_rounded, 'Map'),
@@ -73,6 +81,12 @@ class HomeShellState extends State<HomeShell> {
               child: Column(
                 children: [
                   _topBar(c),
+                  // All opened tabs are stacked on top of each other, and
+                  // only the active one is visible (see _TabLayer). This
+                  // is what keeps each tab's scroll position when you
+                  // switch away and come back. ValueKey(i) tells Flutter
+                  // which layer is which tab, so it doesn't mix them up
+                  // when a newly opened tab gets added to the Stack.
                   Expanded(
                     child: Stack(
                       children: [
@@ -143,6 +157,10 @@ class HomeShellState extends State<HomeShell> {
             ),
           ),
           const Spacer(),
+          // readAlerts (demo_data.dart) is a ValueNotifier holding the ids
+          // of the alerts the user has read. ValueListenableBuilder rebuilds
+          // just this bell button whenever that set changes, so the red
+          // unread-count badge updates without rebuilding the whole shell.
           ValueListenableBuilder<Set<String>>(
             valueListenable: readAlerts,
             builder: (context, _, _) => _roundButton(
@@ -159,6 +177,8 @@ class HomeShellState extends State<HomeShell> {
             icon: c.isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
             tooltip: c.isDark ? 'Switch to light mode' : 'Switch to dark mode',
             color: c.isDark ? kLogoYellow : kSkyBlue,
+            // Changing themeNotifier.value makes the ValueListenableBuilder
+            // in main.dart rebuild MaterialApp with the other theme.
             onTap: () => themeNotifier.value = c.isDark
                 ? ThemeMode.light
                 : ThemeMode.dark,
@@ -191,6 +211,10 @@ class HomeShellState extends State<HomeShell> {
                 shape: BoxShape.circle,
                 border: Border.all(color: c.border),
               ),
+              // AnimatedSwitcher animates whenever its child changes, and
+              // the child counts as "changed" when its key changes. That's
+              // why the Icon has key: ValueKey(icon): switching sun <-> moon
+              // spins/fades the old icon out and the new one in.
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 350),
                 transitionBuilder: (child, anim) => RotationTransition(
@@ -260,12 +284,19 @@ class HomeShellState extends State<HomeShell> {
               ),
             ],
           ),
+          // LayoutBuilder tells us how wide the bar actually is, so we can
+          // work out where each button sits: 5 equal slots, each itemWidth
+          // wide, and tab i starts at x = itemWidth * i.
           child: LayoutBuilder(
             builder: (context, constraints) {
               final itemWidth = constraints.maxWidth / _items.length;
               return Stack(
                 children: [
-                  // Sliding highlight behind the selected tab
+                  // Sliding highlight behind the selected tab. When _index
+                  // changes, AnimatedPositioned slides it from the old
+                  // `left` to the new one. "+ 8" and "- 16" leave an 8 px
+                  // gap on each side of the pill. easeOutBack = it
+                  // overshoots slightly, then settles.
                   AnimatedPositioned(
                     duration: const Duration(milliseconds: 380),
                     curve: Curves.easeOutBack,
@@ -304,6 +335,8 @@ class HomeShellState extends State<HomeShell> {
     final selected = i == _index;
     final (outline, filled, label) = _items[i];
     final color = selected ? c.accent : c.textSecondary;
+    // Semantics describes the button for screen readers (used by blind
+    // users): "Map, button, selected". The icon alone doesn't say that.
     return Semantics(
       button: true,
       selected: selected,
@@ -328,6 +361,8 @@ class HomeShellState extends State<HomeShell> {
                       size: 23,
                     ),
                   ),
+                  // Tab 2 (Alerts) gets a small red dot while there are
+                  // unread alerts.
                   if (i == 2)
                     ValueListenableBuilder<Set<String>>(
                       valueListenable: readAlerts,
@@ -377,6 +412,13 @@ class _TabLayer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const duration = Duration(milliseconds: 280);
+    // For a hidden tab (active == false):
+    //   IgnorePointer    -> taps pass through it (it's invisible but still
+    //                       in the Stack, so otherwise it would block taps).
+    //   ExcludeSemantics -> screen readers skip it.
+    //   opacity 0        -> invisible.
+    //   Offset(0, 0.02)  -> sits 2% lower, so when it becomes active it
+    //                       slides up into place while fading in.
     return IgnorePointer(
       ignoring: !active,
       child: ExcludeSemantics(

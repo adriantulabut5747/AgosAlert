@@ -20,8 +20,24 @@ project: Adrian writes all the code, his groupmates only do the paperwork.
   evacuation centers). Shown with a SAMPLE badge in the UI. A real data
   source is coming later as a file from Adrian. Barangay coordinates are
   real (OpenStreetMap).
-- Optional photos: `assets/images/evac_*.jpg` (names in demo_data.dart).
-  Missing files fall back to a gradient.
+- Optional photos: `assets/images/evac_*.jpg` (names in demo_data.dart)
+  and `assets/images/flood_<barangay>.jpg` for map pins (lowercase,
+  spaces → `_`, e.g. `flood_dau.jpg`). Missing files fall back to a
+  placeholder. The current flood photos are from Apalit, Pampanga
+  (Wikimedia Commons, CC BY-SA 4.0): keep the credit (`kFloodPhotoCredit`
+  in demo_data.dart, and the About screen) while they're used.
+- Roles: Admin, Registered User, Guest. For now only guest vs logged-in
+  exists: `isGuest` (demo_data.dart, set by the login screen). When a
+  guest taps something they can't do, call `showLoginRequired`
+  (login_screen.dart). Votes on flood pins live in `myVotes` (memory only).
+- No real offices as the app's admin: the admins aren't confirmed yet, so
+  the app says "Admin" (`kAdminSource`) and calls itself an unofficial demo.
+  Real emergency hotlines (CDRRMO, PNP...) stay as they are.
+- Flood pins are removed 14 days after their photo was taken
+  (`kPinLifetime`); the map only shows `activeFloodZones`.
+- `lib/widgets/flood_depth.dart`: flood depth levels (ankle → over head),
+  cm/ft, the gauge drawing, and the depth → risk cut-offs (≤20 cm normal,
+  ≤50 moderate, else high) that the map legend also shows.
 - `test/widget_test.dart` checks the login screen and that every screen
   renders at phone size without overflow. Use `pump()`, not
   `pumpAndSettle()`: several animations repeat forever.

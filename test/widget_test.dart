@@ -2,14 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:agosalert/data/demo_data.dart';
 import 'package:agosalert/main.dart';
 import 'package:agosalert/screens/evacuation_centers_screen.dart';
 import 'package:agosalert/screens/home_shell.dart';
 import 'package:agosalert/screens/info_screens.dart';
 import 'package:agosalert/screens/map_tab.dart';
+import 'package:agosalert/screens/more_tab.dart';
 import 'package:agosalert/screens/report_incident_screen.dart';
 import 'package:agosalert/screens/settings_screen.dart';
 import 'package:agosalert/theme.dart';
+import 'package:agosalert/widgets/flood_depth.dart';
 
 /// Shows [page] on a phone-sized screen (390 x 844, like an iPhone).
 Future<void> pumpPhone(WidgetTester tester, Widget page) async {
@@ -67,7 +70,7 @@ void main() {
           .value;
     }
 
-    expect(opacityOf('Log out'), 0); // More tab is hidden
+    expect(opacityOf('Settings'), 0); // More tab is hidden
     expect(opacityOf('Quick actions'), 1); // Home tab is visible
   });
 
@@ -90,6 +93,138 @@ void main() {
       expect(view.west, greaterThanOrEqualTo(kMabalacatBounds.west - margin));
       expect(view.east, lessThanOrEqualTo(kMabalacatBounds.east + margin));
     }
+  });
+
+  testWidgets('Tapping a flood pin shows its depth', (tester) async {
+    await pumpPhone(tester, const Scaffold(body: MapTab()));
+    await tester.tap(find.text('65 cm'));
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('Brgy. Dau'), findsOneWidget);
+    expect(find.text('Knee-deep'), findsOneWidget);
+    expect(find.text('≈ 2.1 ft'), findsOneWidget);
+    expect(find.text('No vehicles should pass'), findsOneWidget);
+  });
+
+  // Opens Dau's pin (42 up, 3 down).
+  Future<void> openDau(WidgetTester tester) async {
+    await pumpPhone(tester, const Scaffold(body: MapTab()));
+    await tester.tap(find.text('65 cm'));
+    await tester.pump(const Duration(seconds: 1));
+    // The first pump starts the sheet's slide-in; this one finishes it.
+    await tester.pump(const Duration(seconds: 1));
+  }
+
+  Future<void> tapThumb(WidgetTester tester, IconData icon) async {
+    await tester.ensureVisible(find.byIcon(icon));
+    await tester.pump();
+    await tester.tap(find.byIcon(icon));
+    await tester.pump(const Duration(milliseconds: 300));
+  }
+
+  testWidgets('Logged-in user can vote once, switch, and undo', (tester) async {
+    isGuest = false;
+    myVotes.value = {};
+    await openDau(tester);
+    await tapThumb(tester, Icons.thumb_up_rounded);
+    expect(find.text('43'), findsOneWidget);
+    // Switching moves the vote: up goes back to 42, down goes to 4.
+    await tapThumb(tester, Icons.thumb_down_rounded);
+    expect(find.text('42'), findsOneWidget);
+    expect(find.text('4'), findsOneWidget);
+    // Tapping the same thumb again takes the vote back.
+    await tapThumb(tester, Icons.thumb_down_rounded);
+    expect(find.text('3'), findsOneWidget);
+    expect(myVotes.value, isEmpty);
+  });
+
+  testWidgets('Guests get a login popup instead of voting', (tester) async {
+    isGuest = true;
+    myVotes.value = {};
+    addTearDown(() => isGuest = false);
+    await openDau(tester);
+    await tapThumb(tester, Icons.thumb_up_rounded);
+    expect(find.text('Log in to vote'), findsOneWidget);
+    expect(find.text('42'), findsOneWidget);
+    expect(myVotes.value, isEmpty);
+  });
+
+  testWidgets('Swiping a pin sheet down closes it', (tester) async {
+    await openDau(tester);
+    await tester.drag(find.text('Brgy. Dau'), const Offset(0, 300));
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('Brgy. Dau'), findsNothing);
+  });
+
+  testWidgets('Pin sheet shows the photo date and removal countdown', (
+    tester,
+  ) async {
+    await openDau(tester); // photo taken 5 hours ago
+    expect(find.textContaining('Photo taken'), findsOneWidget);
+    expect(find.text('Pin will be removed in 13 days'), findsOneWidget);
+  });
+
+  test('Pins older than 14 days are hidden', () {
+    const old = FloodZone(
+      'Dau',
+      kMabalacatCenter,
+      RiskLevel.normal,
+      0,
+      '',
+      '',
+      photoAge: Duration(days: 15),
+    );
+    expect(old.expired, isTrue);
+    expect(activeFloodZones.length, kFloodZones.length);
+  });
+
+  testWidgets('Guests get a login popup from the map Report button', (
+    tester,
+  ) async {
+    isGuest = true;
+    addTearDown(() => isGuest = false);
+    await pumpPhone(tester, const Scaffold(body: MapTab()));
+    await tester.tap(find.text('Report'));
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('Log in to report'), findsOneWidget);
+  });
+
+  testWidgets('Profile shows votes received, but not for guests', (
+    tester,
+  ) async {
+    isGuest = false;
+    await pumpPhone(tester, const Scaffold(body: MoreTab()));
+    expect(find.text('$kMyUpVotesReceived'), findsOneWidget);
+    isGuest = true;
+    addTearDown(() => isGuest = false);
+    // A new key makes Flutter build the tab again with the new isGuest.
+    await pumpPhone(tester, const Scaffold(body: MoreTab(key: ValueKey(1))));
+    expect(find.text('Guest'), findsOneWidget);
+    expect(find.text('Votes on your uploads'), findsNothing);
+  });
+
+  testWidgets('Report: dragging the water sets depth and severity', (
+    tester,
+  ) async {
+    await pumpPhone(tester, const ReportIncidentScreen());
+    expect(find.byType(DepthGauge), findsNothing);
+    await tester.tap(find.text('Flooding'));
+    // Two pumps: the first starts the card's open animation, the second
+    // finishes it (one long pump would only draw its first frame).
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('Not set'), findsOneWidget);
+
+    // Tap near the bottom of the gauge (shallow water), then drag up.
+    final gauge = find.byType(DepthGauge);
+    final shallow = tester.getBottomLeft(gauge) + const Offset(80, -40);
+    await tester.tapAt(shallow);
+    await tester.pump();
+    expect(find.text('Ankle-deep'), findsOneWidget);
+    await tester.dragFrom(shallow, const Offset(0, -80));
+    await tester.pump();
+    expect(find.text('Waist-deep'), findsOneWidget);
+    expect(find.text('No vehicles should pass'), findsOneWidget);
   });
 
   for (final (name, page) in [
