@@ -16,7 +16,7 @@ project: Adrian writes all the code, his groupmates only do the paperwork.
   tap-to-call (always asks first) and Google Maps directions.
 - `lib/services/weather.dart`: live Mabalacat weather from Open-Meteo (free,
   no key) and the rain-based flood outlook.
-- `lib/data/demo_data.dart`: all made-up data (rivers, flood zones, alerts,
+- `lib/data/demo_data.dart`: all made-up data (flood zones, alerts,
   evacuation centers). Shown with a SAMPLE badge in the UI. A real data
   source is coming later as a file from Adrian. Barangay coordinates are
   real (OpenStreetMap).
@@ -26,6 +26,17 @@ project: Adrian writes all the code, his groupmates only do the paperwork.
   placeholder. The current flood photos are from Apalit, Pampanga
   (Wikimedia Commons, CC BY-SA 4.0): keep the credit (`kFloodPhotoCredit`
   in demo_data.dart, and the About screen) while they're used.
+- Phone / tablet / desktop layouts: `lib/widgets/responsive.dart`
+  (breakpoints 600 and 1024, `pagePadding`, `TwoColumns`). Phones keep
+  the bottom nav; tablets and desktops get a top nav (icons only on
+  tablets) with a profile menu instead of the More tab, and
+  `showAppSheet` opens a centered popup instead of a bottom sheet.
+  Desktop has its own layouts for Home (two columns), Map (side panel),
+  Alerts (list + details), Assistance, and Login (photo panel).
+- Style ("calm water"): no glows or gradient-filled tiles; the thin
+  `WaterLines` pattern is the signature. Local identity: real local
+  photos (`LocalPhoto` in demo_data.dart, credits shown on the photo and
+  listed on About) and Kapampangan greetings (Home banner, login).
 - Roles: Admin, Registered User, Guest. For now only guest vs logged-in
   exists: `isGuest` (demo_data.dart, set by the login screen). When a
   guest taps something they can't do, call `showLoginRequired`
@@ -33,8 +44,17 @@ project: Adrian writes all the code, his groupmates only do the paperwork.
 - No real offices as the app's admin: the admins aren't confirmed yet, so
   the app says "Admin" (`kAdminSource`) and calls itself an unofficial demo.
   Real emergency hotlines (CDRRMO, PNP...) stay as they are.
+- No river-level card: the only PhilSensors (DOST-ASTI) stations in
+  Mabalacat are offline (water level #762 San Felipe Bridge, last reading
+  2019; rain gauges #699 and #2908, last 2022). Don't fake live river
+  data; only bring it back with a real, working source.
 - Flood pins are removed 14 days after their photo was taken
   (`kPinLifetime`); the map only shows `activeFloodZones`.
+- Each pin has an uploader (`kUploaders`, sample names). The Home feed
+  ("Latest flood reports") shows the pins as posts; `VoteBar` and
+  `PostedBy` / `showUserProfile` (lib/widgets/) are shared by the feed
+  and the pin popup. "View on map" sets `focusedZone`, which the Map tab
+  listens to.
 - `lib/widgets/flood_depth.dart`: flood depth levels (ankle → over head),
   cm/ft, the gauge drawing, and the depth → risk cut-offs (≤20 cm normal,
   ≤50 moderate, else high) that the map legend also shows.
@@ -54,10 +74,13 @@ project: Adrian writes all the code, his groupmates only do the paperwork.
   Flutter's `flutter-first-frame`). `index.html` also preloads
   `main.dart.js`, the fonts, and the asset manifests. If you add or rename
   a font, update those preload links too.
-- The Map tab and Report incident screen are deferred (downloaded on first
-  use). Always open them through `lib/screens/deferred_screens.dart`, and
-  keep `flutter_map` / `image_picker` imports out of every other file, or
-  they'll end up back in the first download.
+- Every page except Login and Home is deferred (downloaded on first use,
+  with a skeleton meanwhile): Map, Alerts, Assistance, More, Report,
+  Settings, Help, About. Always open them through
+  `lib/screens/deferred_screens.dart` (never import those screen files
+  from Home, the shell, or shared widgets), and keep `flutter_map` /
+  `image_picker` imports out of every other file, or they'll end up back
+  in the first download.
 - In-app loading placeholders live in `lib/widgets/skeleton.dart`.
 - Check before committing: `flutter analyze` and `flutter test`.
 

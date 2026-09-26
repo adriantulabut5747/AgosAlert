@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../theme.dart';
 import '../widgets/common.dart';
-import 'assistance_tab.dart';
 
 /// ============================================================
 /// SETTINGS — appearance, notifications, location

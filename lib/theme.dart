@@ -69,7 +69,7 @@ class AppColors {
   Color get accent => kSkyBlue;
 }
 
-/// Flood / alert severity, shared by the map, alerts, and river levels.
+/// Flood / alert severity, shared by the map, alerts, and flood outlook.
 /// An "enhanced enum": each level carries its own label, color, and icon,
 /// so any screen can write `zone.risk.color` instead of repeating
 /// "if high then red, if moderate then orange..." everywhere.

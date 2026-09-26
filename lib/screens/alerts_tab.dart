@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/demo_data.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/responsive.dart';
 import 'home_shell.dart';
 
 /// ============================================================
@@ -10,7 +11,6 @@ import 'home_shell.dart';
 /// ============================================================
 class AlertsTab extends StatefulWidget {
   const AlertsTab({super.key});
-
   @override
   State<AlertsTab> createState() => _AlertsTabState();
 }
@@ -30,9 +30,15 @@ class _AlertsTabState extends State<AlertsTab> {
   // tab) aren't told about the change. See readAlerts in demo_data.dart.
   void _markRead(AppAlert a) => readAlerts.value = {...readAlerts.value, a.id};
 
+  // Desktop only: the alert shown in the right-hand panel.
+  String? _selectedId;
+
   @override
   Widget build(BuildContext context) {
     final c = AppColors(context);
+    // Desktop: list on the left, the chosen alert on the right (like an
+    // email inbox). Phones and tablets: one list; tapping opens a sheet.
+    final desktop = screenSizeOf(context) == ScreenSize.desktop;
     // The whole list rebuilds whenever an alert is marked read, so the
     // unread dots, the counter, and the red banner stay up to date.
     // `read` is the current set of read alert ids.
@@ -40,89 +46,39 @@ class _AlertsTabState extends State<AlertsTab> {
       valueListenable: readAlerts,
       builder: (context, read, _) {
         final items = _filtered;
-        // Split into "Today" (less than 24 h old) and "Earlier".
-        final today = items.where((a) => a.ago.inHours < 24).toList();
-        final earlier = items.where((a) => a.ago.inHours >= 24).toList();
         // Unread High alerts, from ALL categories (ignores the filter).
         // The first one is shown in the red banner at the top.
         final critical = kAlerts
             .where((a) => a.severity == RiskLevel.high && !read.contains(a.id))
             .toList();
-        final unread = unreadAlertCount;
-
-        return ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
-          children: [
-            PageHeader(
-              'Alerts',
-              subtitle: unread == 0
-                  ? 'You\'re all caught up'
-                  : '$unread unread · Mabalacat City',
-              trailing: unread == 0
-                  ? null
-                  : TextButton.icon(
-                      onPressed: () =>
-                          readAlerts.value = kAlerts.map((a) => a.id).toSet(),
-                      icon: Icon(
-                        Icons.done_all_rounded,
-                        size: 18,
-                        color: c.accent,
-                      ),
-                      label: Text(
-                        'Mark all read',
-                        style: TextStyle(
-                          color: c.accent,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-            ),
+        final top = [
+          _header(c),
+          const SizedBox(height: 16),
+          if (critical.isNotEmpty && !desktop) ...[
+            FadeSlideIn(child: _criticalBanner(context, critical.first)),
             const SizedBox(height: 16),
-            if (critical.isNotEmpty) ...[
-              FadeSlideIn(child: _criticalBanner(context, critical.first)),
-              const SizedBox(height: 16),
-            ],
-            SizedBox(
-              height: 40,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                clipBehavior: Clip.none,
-                children: [
-                  SelectChip(
-                    label: 'All  ${kAlerts.length}',
-                    selected: _filter == null,
-                    onTap: () => setState(() => _filter = null),
-                  ),
-                  for (final cat in AlertCategory.values) ...[
-                    const SizedBox(width: 8),
-                    SelectChip(
-                      label:
-                          '${cat.label}  ${kAlerts.where((a) => a.category == cat).length}',
-                      icon: cat.icon,
-                      selected: _filter == cat,
-                      onTap: () => setState(() => _filter = cat),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
+          ],
+          _chips(),
+          const SizedBox(height: 8),
+        ];
+        if (desktop) return _desktop(context, c, top, items, read);
+        // Split into "Today" (less than 24 h old) and "Earlier".
+        final today = items.where((a) => a.ago.inHours < 24).toList();
+        final earlier = items.where((a) => a.ago.inHours >= 24).toList();
+        return ListView(
+          padding: pagePadding(context),
+          children: [
+            ...top,
             if (items.isEmpty) _empty(c),
             if (today.isNotEmpty) ...[
               const SizedBox(height: 12),
               const FieldLabel('Today'),
-              // Each card waits 50 ms longer than the one above it
-              // (0, 50, 100 ms...), so they appear one after another.
-              for (var i = 0; i < today.length; i++)
-                FadeSlideIn(
-                  delay: Duration(milliseconds: 50 * i),
-                  child: _alertCard(context, c, today[i], read),
-                ),
+              FadeSlideIn(child: _alertList(context, c, today, read)),
             ],
             if (earlier.isNotEmpty) ...[
               const SizedBox(height: 12),
               const FieldLabel('Earlier'),
-              for (final a in earlier) _alertCard(context, c, a, read),
+              _alertList(context, c, earlier, read),
             ],
           ],
         );
@@ -130,210 +86,287 @@ class _AlertsTabState extends State<AlertsTab> {
     );
   }
 
-  Widget _criticalBanner(BuildContext context, AppAlert a) {
-    return PressableScale(
-      onTap: () => _openAlert(context, a),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
-          gradient: const LinearGradient(
-            colors: [Color(0xFFDC2626), Color(0xFFF97316)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: kDanger.withValues(alpha: 0.45),
-              blurRadius: 24,
-              offset: const Offset(0, 10),
+  Widget _desktop(
+    BuildContext context,
+    AppColors c,
+    List<Widget> top,
+    List<AppAlert> items,
+    Set<String> read,
+  ) {
+    final pad = pagePadding(context);
+    // The selected alert, or the first one in the list if none is picked
+    // yet (or the picked one is hidden by the filter).
+    final selected =
+        items.where((a) => a.id == _selectedId).firstOrNull ??
+        items.firstOrNull;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(pad.left, pad.top, pad.right, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ...top,
+          const SizedBox(height: 8),
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(
+                  width: 420,
+                  child: items.isEmpty
+                      ? _empty(c)
+                      : SingleChildScrollView(
+                          child: _alertList(
+                            context,
+                            c,
+                            items,
+                            read,
+                            selectedId: selected?.id,
+                          ),
+                        ),
+                ),
+                const SizedBox(width: 24),
+                Expanded(
+                  child: selected == null
+                      ? const SizedBox.shrink()
+                      : AppCard(
+                          padding: EdgeInsets.zero,
+                          child: SingleChildScrollView(
+                            // A new key per alert resets the scroll to the
+                            // top when another alert is picked.
+                            key: ValueKey(selected.id),
+                            padding: const EdgeInsets.all(32),
+                            child: _AlertDetails(
+                              alert: selected,
+                              onViewMap: () =>
+                                  HomeShell.of(context)?.switchTab(1),
+                            ),
+                          ),
+                        ),
+                ),
+              ],
             ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(24),
-          child: Stack(
-            children: [
-              const Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: AnimatedWaves(
-                  height: 50,
-                  colors: [Color(0x14FFFFFF), Color(0x1FFFFFFF)],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(18),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 50,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.2),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.warning_rounded,
-                        color: Colors.white,
-                        size: 28,
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'HIGH SEVERITY',
-                            style: TextStyle(
-                              color: Color(0xDDFFFFFF),
-                              fontSize: 10,
-                              letterSpacing: 1,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            a.title,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            a.summary,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Color(0xE6FFFFFF),
-                              fontSize: 12,
-                              height: 1.35,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Icon(
-                      Icons.chevron_right_rounded,
-                      color: Colors.white,
-                    ),
-                  ],
-                ),
-              ),
-            ],
           ),
-        ),
+        ],
       ),
     );
   }
 
-  Widget _alertCard(
+  Widget _header(AppColors c) {
+    final unread = unreadAlertCount;
+    return PageHeader(
+      'Alerts',
+      subtitle: unread == 0
+          ? 'You\'re all caught up'
+          : '$unread unread · Mabalacat City',
+      trailing: unread == 0
+          ? null
+          : TextButton.icon(
+              onPressed: () =>
+                  readAlerts.value = kAlerts.map((a) => a.id).toSet(),
+              icon: Icon(Icons.done_all_rounded, size: 18, color: c.accent),
+              label: Text(
+                'Mark all read',
+                style: TextStyle(color: c.accent, fontWeight: FontWeight.w700),
+              ),
+            ),
+    );
+  }
+
+  Widget _chips() {
+    return SizedBox(
+      height: 40,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        clipBehavior: Clip.none,
+        children: [
+          SelectChip(
+            label: 'All  ${kAlerts.length}',
+            selected: _filter == null,
+            onTap: () => setState(() => _filter = null),
+          ),
+          for (final cat in AlertCategory.values) ...[
+            const SizedBox(width: 8),
+            SelectChip(
+              label:
+                  '${cat.label}  ${kAlerts.where((a) => a.category == cat).length}',
+              icon: cat.icon,
+              selected: _filter == cat,
+              onTap: () => setState(() => _filter = cat),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // Phones: the newest unread High alert, pinned above the list. A plain
+  // card with a red edge and a warning icon: serious, but not shouting.
+  Widget _criticalBanner(BuildContext context, AppAlert a) {
+    final c = AppColors(context);
+    return AppCard(
+      onTap: () => _openAlert(context, a),
+      borderColor: kDanger.withValues(alpha: 0.5),
+      padding: const EdgeInsets.fromLTRB(16, 14, 10, 14),
+      child: Row(
+        children: [
+          const Icon(Icons.warning_amber_rounded, color: kDanger, size: 24),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  a.title,
+                  style: TextStyle(
+                    color: c.textPrimary,
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  a.summary,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: c.textSecondary, fontSize: 12.5),
+                ),
+              ],
+            ),
+          ),
+          Icon(Icons.chevron_right_rounded, color: c.textSecondary),
+        ],
+      ),
+    );
+  }
+
+  // A group of alerts as one card, with thin lines between them (like an
+  // email inbox). [selectedId] (desktop) is the alert being read.
+  Widget _alertList(
     BuildContext context,
     AppColors c,
-    AppAlert a,
-    Set<String> read,
-  ) {
-    final unread = !read.contains(a.id);
+    List<AppAlert> alerts,
+    Set<String> read, {
+    String? selectedId,
+  }) {
+    return AppCard(
+      padding: EdgeInsets.zero,
+      child: Column(
+        children: [
+          for (var i = 0; i < alerts.length; i++) ...[
+            if (i > 0) Divider(height: 1, color: c.border),
+            _alertRow(
+              context,
+              c,
+              alerts[i],
+              unread: !read.contains(alerts[i].id),
+              selected: alerts[i].id == selectedId,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // One alert: title and time, the summary, then severity and area.
+  // Plain text on purpose: the only color is the small severity dot.
+  Widget _alertRow(
+    BuildContext context,
+    AppColors c,
+    AppAlert a, {
+    required bool unread,
+    required bool selected,
+  }) {
     final color = a.severity.color;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: AppCard(
-        padding: EdgeInsets.zero,
-        onTap: () => _openAlert(context, a),
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Material(
+      // The alert being read (desktop) gets a soft blue background.
+      color: selected
+          ? kSkyBlue.withValues(alpha: c.isDark ? 0.14 : 0.08)
+          : Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          // Desktop: show it in the right-hand panel. Otherwise: a sheet.
+          if (screenSizeOf(context) == ScreenSize.desktop) {
+            _markRead(a);
+            setState(() => _selectedId = a.id);
+          } else {
+            _openAlert(context, a);
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Severity stripe
-              Container(
-                width: 5,
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: const BorderRadius.horizontal(
-                    left: Radius.circular(20),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      a.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: c.textPrimary,
+                        fontSize: 14.5,
+                        fontWeight: unread ? FontWeight.w800 : FontWeight.w600,
+                      ),
+                    ),
                   ),
+                  if (unread)
+                    Container(
+                      width: 8,
+                      height: 8,
+                      margin: const EdgeInsets.only(left: 8),
+                      decoration: const BoxDecoration(
+                        color: kSkyBlue,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  const SizedBox(width: 10),
+                  Text(
+                    timeAgo(a.ago),
+                    style: TextStyle(color: c.textSecondary, fontSize: 12),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                a.summary,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: c.textSecondary,
+                  fontSize: 13,
+                  height: 1.4,
                 ),
               ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      IconBadge(
-                        a.category.icon,
-                        color,
-                        size: 42,
-                        squircle: true,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    a.title,
-                                    style: TextStyle(
-                                      color: c.textPrimary,
-                                      fontWeight: unread
-                                          ? FontWeight.w800
-                                          : FontWeight.w600,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ),
-                                if (unread)
-                                  Container(
-                                    width: 8,
-                                    height: 8,
-                                    margin: const EdgeInsets.only(left: 6),
-                                    decoration: BoxDecoration(
-                                      color: c.accent,
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 3),
-                            Text(
-                              a.summary,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: c.textSecondary,
-                                fontSize: 12.5,
-                                height: 1.4,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                StatusPill(a.severity.label, color),
-                                const SizedBox(width: 8),
-                                Flexible(
-                                  child: Text(
-                                    '${a.area} · ${timeAgo(a.ago)}',
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: c.textSecondary,
-                                      fontSize: 11,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Container(
+                    width: 7,
+                    height: 7,
+                    decoration: BoxDecoration(
+                      color: color,
+                      shape: BoxShape.circle,
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 6),
+                  Text(
+                    a.severity.label,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  Flexible(
+                    child: Text(
+                      '  ·  ${a.area}',
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: c.textSecondary, fontSize: 12),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -373,121 +406,153 @@ class _AlertsTabState extends State<AlertsTab> {
 
   void _openAlert(BuildContext context, AppAlert a) {
     _markRead(a);
-    final color = a.severity.color;
     showAppSheet(
       context,
-      builder: (sheet) {
-        final c = AppColors(sheet);
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      builder: (sheet) => _AlertDetails(
+        alert: a,
+        onViewMap: () {
+          Navigator.of(sheet).pop();
+          HomeShell.of(context)?.switchTab(1);
+        },
+        onClose: () => Navigator.of(sheet).pop(),
+      ),
+    );
+  }
+}
+
+/// Everything about one alert: severity, title, where/when/who, details,
+/// what to do, and a photo of the area when there is one. Shown in a
+/// sheet (phones), a popup (tablets), or the right-hand panel (desktop).
+class _AlertDetails extends StatelessWidget {
+  final AppAlert alert;
+  final VoidCallback onViewMap;
+  final VoidCallback? onClose;
+  const _AlertDetails({
+    required this.alert,
+    required this.onViewMap,
+    this.onClose,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = AppColors(context);
+    final a = alert;
+    final color = a.severity.color;
+    final photo = kAreaPhotos[a.area];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Severity as a colored dot and words, like in the list.
+        Row(
           children: [
-            Row(
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '${a.severity.label} severity · ${a.category.label}',
+              style: TextStyle(
+                color: color,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          a.title,
+          style: TextStyle(
+            color: c.textPrimary,
+            fontSize: 24,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.4,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Wrap(
+          spacing: 16,
+          runSpacing: 6,
+          children: [
+            _meta(c, Icons.place_outlined, a.area),
+            _meta(c, Icons.schedule_rounded, timeAgo(a.ago)),
+            _meta(c, Icons.verified_outlined, a.source),
+          ],
+        ),
+        if (photo != null) ...[
+          const SizedBox(height: 18),
+          LocalPhotoView(photo, height: 190, radius: 16),
+          const SizedBox(height: 6),
+          Text(
+            'Photo of the area, not of the current flood.',
+            style: TextStyle(color: c.textSecondary, fontSize: 11.5),
+          ),
+        ],
+        const SizedBox(height: 16),
+        Text(
+          a.details,
+          style: TextStyle(color: c.textPrimary, fontSize: 14.5, height: 1.6),
+        ),
+        const SizedBox(height: 20),
+        const FieldLabel('What to do'),
+        for (var i = 0; i < a.actions.length; i++)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                IconBadge(a.category.icon, color, size: 52, squircle: true),
-                const SizedBox(width: 14),
+                Container(
+                  width: 24,
+                  height: 24,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text(
+                    '${i + 1}',
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      StatusPill(
-                        '${a.severity.label} · ${a.category.label}',
-                        color,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      a.actions[i],
+                      style: TextStyle(
+                        color: c.textPrimary,
+                        fontSize: 14,
+                        height: 1.4,
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        a.title,
-                        style: TextStyle(
-                          color: c.textPrimary,
-                          fontSize: 19,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.3,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 16,
-              runSpacing: 6,
-              children: [
-                _meta(c, Icons.place_outlined, a.area),
-                _meta(c, Icons.schedule_rounded, timeAgo(a.ago)),
-                _meta(c, Icons.verified_outlined, a.source),
-              ],
+          ),
+        const SizedBox(height: 14),
+        GradientButton(
+          label: 'View on map',
+          icon: Icons.map_rounded,
+          onPressed: onViewMap,
+        ),
+        if (onClose != null) ...[
+          const SizedBox(height: 4),
+          Center(
+            child: TextButton(
+              onPressed: onClose,
+              child: Text('Close', style: TextStyle(color: c.textSecondary)),
             ),
-            const SizedBox(height: 16),
-            Text(
-              a.details,
-              style: TextStyle(
-                color: c.textPrimary,
-                fontSize: 14,
-                height: 1.55,
-              ),
-            ),
-            const SizedBox(height: 20),
-            const FieldLabel('What to do'),
-            for (var i = 0; i < a.actions.length; i++)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 24,
-                      height: 24,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.15),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Text(
-                        '${i + 1}',
-                        style: TextStyle(
-                          color: color,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                          a.actions[i],
-                          style: TextStyle(
-                            color: c.textPrimary,
-                            fontSize: 13.5,
-                            height: 1.4,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            const SizedBox(height: 14),
-            GradientButton(
-              label: 'View on map',
-              icon: Icons.map_rounded,
-              onPressed: () {
-                Navigator.of(sheet).pop();
-                HomeShell.of(context)?.switchTab(1);
-              },
-            ),
-            const SizedBox(height: 4),
-            Center(
-              child: TextButton(
-                onPressed: () => Navigator.of(sheet).pop(),
-                child: Text('Close', style: TextStyle(color: c.textSecondary)),
-              ),
-            ),
-          ],
-        );
-      },
+          ),
+        ],
+      ],
     );
   }
 
@@ -497,7 +562,7 @@ class _AlertsTabState extends State<AlertsTab> {
       children: [
         Icon(icon, size: 15, color: c.textSecondary),
         const SizedBox(width: 4),
-        Text(text, style: TextStyle(color: c.textSecondary, fontSize: 12)),
+        Text(text, style: TextStyle(color: c.textSecondary, fontSize: 12.5)),
       ],
     );
   }

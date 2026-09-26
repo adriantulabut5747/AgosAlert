@@ -45,9 +45,12 @@ class AboutScreen extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
             children: [
               const SizedBox(height: 8),
+              // A real Mabalacat landmark instead of a stock picture.
+              const LocalPhotoView(kPhotoMabuhayArch, height: 190, radius: 20),
+              const SizedBox(height: 16),
               Center(
                 child: BrandLogo.icon(
-                  height: 150,
+                  height: 110,
                   fallback: Container(
                     width: 96,
                     height: 96,
@@ -167,7 +170,7 @@ class AboutScreen extends StatelessWidget {
                     _source(c, 'Map', 'Esri, HERE, Garmin, © OpenStreetMap'),
                     _source(
                       c,
-                      'Rivers, flood zones, centers',
+                      'Flood reports, alerts, centers',
                       'Sample data (live data coming soon)',
                     ),
                     _source(
@@ -175,6 +178,8 @@ class AboutScreen extends StatelessWidget {
                       'Flood photos',
                       'Apalit, Pampanga (2023) by E911a, Wikimedia Commons, CC BY-SA 4.0',
                     ),
+                    for (final p in kLocalPhotos)
+                      _source(c, p.place, '${p.credit} (Wikimedia Commons)'),
                   ],
                 ),
               ),

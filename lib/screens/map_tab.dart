@@ -11,9 +11,11 @@ import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/flood_depth.dart';
 import '../widgets/map_tiles.dart';
+import '../widgets/responsive.dart';
+import '../widgets/user_profile.dart';
+import '../widgets/vote_bar.dart';
 import '../widgets/links.dart';
 import 'deferred_screens.dart';
-import 'login_screen.dart';
 
 /// ============================================================
 /// MAP TAB — interactive map of Mabalacat City (Esri tiles, see
@@ -60,6 +62,30 @@ class _MapTabState extends State<MapTab> {
   // Zoom in (by = 1) or out (by = -1) around the current center.
   // .clamp(13, 18) keeps the result between 13 and 18, matching minZoom
   // and maxZoom below, so the buttons can't go past the limits.
+  // "View on map" on the Home feed sets focusedZone and switches to this
+  // tab; we then jump to that pin and open it. Checked once at start too,
+  // in case this tab was only just opened (and downloaded) for it.
+  @override
+  void initState() {
+    super.initState();
+    focusedZone.addListener(_openFocused);
+    // After the first frame, so the map exists before we move it.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _openFocused());
+  }
+
+  @override
+  void dispose() {
+    focusedZone.removeListener(_openFocused);
+    super.dispose();
+  }
+
+  void _openFocused() {
+    final z = focusedZone.value;
+    if (z == null || !mounted) return;
+    focusedZone.value = null;
+    _showZone(context, z);
+  }
+
   void _zoom(double by) {
     final cam = _map.camera;
     _map.move(cam.center, (cam.zoom + by).clamp(13, 18));
@@ -68,129 +94,126 @@ class _MapTabState extends State<MapTab> {
   @override
   Widget build(BuildContext context) {
     final c = AppColors(context);
+    // Desktop: a side panel (title, report, layers, list of pins, legend)
+    // next to the map. Phones and tablets: everything floats on the map.
+    if (screenSizeOf(context) == ScreenSize.desktop) return _desktop(c);
+    return _floatingLayout(c, wide: isWideScreen(context));
+  }
 
+  // The map itself, with its layers. Used by both layouts.
+  Widget _mapView(AppColors c) {
+    return FlutterMap(
+      mapController: _map,
+      options: MapOptions(
+        initialCenter: kMabalacatCenter,
+        initialZoom: _startZoom,
+        minZoom: 13,
+        // Keep the whole view inside Mabalacat City.
+        cameraConstraint: CameraConstraint.contain(bounds: kMabalacatBounds),
+        maxZoom: 18,
+        backgroundColor: c.surfaceAlt,
+        // Allow every gesture (drag, pinch, double-tap zoom...)
+        // except rotating. The flags are bits: `& ~rotate` means
+        // "all of them, minus the rotate bit". A rotated map
+        // confuses people and there's no compass to reset it.
+        interactionOptions: const InteractionOptions(
+          flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+        ),
+      ),
+      children: [
+        const AppTileLayer(),
+        // A see-through circle around each flood zone.
+        // useRadiusInMeter: the radius is in real meters on the
+        // ground (650 m for high risk, 480 m otherwise), so the
+        // circle grows/shrinks with the map when zooming, instead
+        // of staying the same size on screen.
+        if (_showZones)
+          CircleLayer(
+            circles: [
+              for (final z in activeFloodZones)
+                CircleMarker(
+                  point: z.point,
+                  radius: z.risk == RiskLevel.high ? 650 : 480,
+                  useRadiusInMeter: true,
+                  color: z.risk.color.withValues(alpha: 0.18),
+                  borderColor: z.risk.color.withValues(alpha: 0.6),
+                  borderStrokeWidth: 1.5,
+                ),
+            ],
+          ),
+        // Pins are normal Flutter widgets pinned to a map
+        // coordinate (`point`). One MarkerLayer holds both kinds;
+        // `if` + `for` inside the list add each group only when
+        // its filter chip is on. Flood pins show their depth so
+        // the map can be read without tapping anything.
+        MarkerLayer(
+          markers: [
+            if (_showZones)
+              for (final z in activeFloodZones)
+                Marker(
+                  point: z.point,
+                  width: _DepthPin.size,
+                  height: _DepthPin.size,
+                  child: _DepthPin(zone: z, onTap: () => _showZone(context, z)),
+                ),
+            if (_showCenters)
+              for (final e in kEvacCenters)
+                Marker(
+                  point: e.point,
+                  width: 38,
+                  height: 38,
+                  child: GestureDetector(
+                    onTap: () => _showCenter(context, e),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: e.open ? kSafe : const Color(0xFF94A3B8),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.white, width: 2),
+                        boxShadow: const [
+                          BoxShadow(color: Color(0x55000000), blurRadius: 8),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.night_shelter_rounded,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                    ),
+                  ),
+                ),
+          ],
+        ),
+        // Map credits (the tile license from Esri and
+        // OpenStreetMap requires showing them)
+        Align(
+          alignment: Alignment.topLeft,
+          child: Container(
+            margin: const EdgeInsets.only(left: 14, top: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: c.surface.withValues(alpha: 0.7),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              AppTileLayer.credits,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: c.textSecondary, fontSize: 9.5),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _floatingLayout(AppColors c, {required bool wide}) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
       child: ClipRRect(
         borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         child: Stack(
           children: [
-            FlutterMap(
-              mapController: _map,
-              options: MapOptions(
-                initialCenter: kMabalacatCenter,
-                initialZoom: _startZoom,
-                minZoom: 13,
-                // Keep the whole view inside Mabalacat City.
-                cameraConstraint: CameraConstraint.contain(
-                  bounds: kMabalacatBounds,
-                ),
-                maxZoom: 18,
-                backgroundColor: c.surfaceAlt,
-                // Allow every gesture (drag, pinch, double-tap zoom...)
-                // except rotating. The flags are bits: `& ~rotate` means
-                // "all of them, minus the rotate bit". A rotated map
-                // confuses people and there's no compass to reset it.
-                interactionOptions: const InteractionOptions(
-                  flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
-                ),
-              ),
-              children: [
-                const AppTileLayer(),
-                // A see-through circle around each flood zone.
-                // useRadiusInMeter: the radius is in real meters on the
-                // ground (650 m for high risk, 480 m otherwise), so the
-                // circle grows/shrinks with the map when zooming, instead
-                // of staying the same size on screen.
-                if (_showZones)
-                  CircleLayer(
-                    circles: [
-                      for (final z in activeFloodZones)
-                        CircleMarker(
-                          point: z.point,
-                          radius: z.risk == RiskLevel.high ? 650 : 480,
-                          useRadiusInMeter: true,
-                          color: z.risk.color.withValues(alpha: 0.18),
-                          borderColor: z.risk.color.withValues(alpha: 0.6),
-                          borderStrokeWidth: 1.5,
-                        ),
-                    ],
-                  ),
-                // Pins are normal Flutter widgets pinned to a map
-                // coordinate (`point`). One MarkerLayer holds both kinds;
-                // `if` + `for` inside the list add each group only when
-                // its filter chip is on. Flood pins show their depth so
-                // the map can be read without tapping anything.
-                MarkerLayer(
-                  markers: [
-                    if (_showZones)
-                      for (final z in activeFloodZones)
-                        Marker(
-                          point: z.point,
-                          width: _DepthPin.size,
-                          height: _DepthPin.size,
-                          child: _DepthPin(
-                            zone: z,
-                            onTap: () => _showZone(context, z),
-                          ),
-                        ),
-                    if (_showCenters)
-                      for (final e in kEvacCenters)
-                        Marker(
-                          point: e.point,
-                          width: 38,
-                          height: 38,
-                          child: GestureDetector(
-                            onTap: () => _showCenter(context, e),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: e.open ? kSafe : const Color(0xFF94A3B8),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: Colors.white,
-                                  width: 2,
-                                ),
-                                boxShadow: const [
-                                  BoxShadow(
-                                    color: Color(0x55000000),
-                                    blurRadius: 8,
-                                  ),
-                                ],
-                              ),
-                              child: const Icon(
-                                Icons.night_shelter_rounded,
-                                color: Colors.white,
-                                size: 18,
-                              ),
-                            ),
-                          ),
-                        ),
-                  ],
-                ),
-                // Map credits (the tile license from Esri and
-                // OpenStreetMap requires showing them)
-                Align(
-                  alignment: Alignment.topLeft,
-                  child: Container(
-                    margin: const EdgeInsets.only(left: 14, top: 8),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: c.surface.withValues(alpha: 0.7),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      AppTileLayer.credits,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: c.textSecondary, fontSize: 9.5),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            _mapView(c),
             // Header + layer toggles
             Positioned(
               top: 30,
@@ -262,7 +285,8 @@ class _MapTabState extends State<MapTab> {
             Positioned(
               left: 12,
               right: 12,
-              bottom: 96,
+              // Phones: above the floating bottom nav. Tablets have none.
+              bottom: wide ? 24 : 96,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -336,6 +360,259 @@ class _MapTabState extends State<MapTab> {
     );
   }
 
+  Widget _desktop(AppColors c) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(width: 360, child: _sidePanel(c)),
+          const SizedBox(width: 20),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: Stack(
+                children: [
+                  _mapView(c),
+                  Positioned(
+                    right: 16,
+                    bottom: 16,
+                    child: Column(
+                      spacing: 8,
+                      children: [
+                        _mapButton(
+                          c,
+                          Icons.add_rounded,
+                          'Zoom in',
+                          () => _zoom(1),
+                        ),
+                        _mapButton(
+                          c,
+                          Icons.remove_rounded,
+                          'Zoom out',
+                          () => _zoom(-1),
+                        ),
+                        _mapButton(
+                          c,
+                          Icons.my_location_rounded,
+                          'Recenter',
+                          () => _map.move(kMabalacatCenter, _startZoom),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Desktop: everything that floats on the phone map, as a quiet column:
+  // what to show, the reports (deepest water first), and a way to add one.
+  Widget _sidePanel(AppColors c) {
+    final zones = activeFloodZones.toList()
+      ..sort((a, b) => b.depthCm.compareTo(a.depthCm));
+    final orange = c.isDark ? const Color(0xFFFB923C) : const Color(0xFFC2410C);
+    return AppCard(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Text(
+                'Flood map',
+                style: TextStyle(
+                  color: c.textPrimary,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.4,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const SampleBadge(),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Reports from residents · Mabalacat City',
+            style: TextStyle(color: c.textSecondary, fontSize: 12.5),
+          ),
+          const SizedBox(height: 14),
+          _layerCheck(
+            c,
+            'Flood reports',
+            zones.length,
+            _showZones,
+            () => setState(() => _showZones = !_showZones),
+          ),
+          _layerCheck(
+            c,
+            'Evacuation centers',
+            kEvacCenters.length,
+            _showCenters,
+            () => setState(() => _showCenters = !_showCenters),
+          ),
+          Divider(height: 24, color: c.border),
+          const FieldLabel('Deepest first'),
+          Expanded(
+            child: ListView.builder(
+              itemCount: zones.length,
+              itemBuilder: (context, i) => _pinRow(c, zones[i]),
+            ),
+          ),
+          Divider(height: 20, color: c.border),
+          // The depth colors (wraps onto two lines if the panel is narrow).
+          Wrap(
+            spacing: 14,
+            runSpacing: 6,
+            children: [
+              _legendDot(c, kSafe, 'Up to 20 cm'),
+              _legendDot(c, kCaution, '21–50 cm'),
+              _legendDot(c, kDanger, 'Over 50 cm'),
+            ],
+          ),
+          const SizedBox(height: 14),
+          OutlinedButton.icon(
+            onPressed: () => openReportIncident(context),
+            icon: const Icon(Icons.campaign_rounded, size: 19),
+            label: const Text('Report flooding near you'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: orange,
+              side: BorderSide(color: orange.withValues(alpha: 0.6)),
+              minimumSize: const Size.fromHeight(44),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              textStyle: const TextStyle(
+                fontFamily: kFontFamily,
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // A checkbox row that turns a map layer on or off.
+  Widget _layerCheck(
+    AppColors c,
+    String label,
+    int count,
+    bool value,
+    VoidCallback onTap,
+  ) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: onTap,
+      child: Row(
+        children: [
+          Checkbox(
+            value: value,
+            onChanged: (_) => onTap(),
+            activeColor: kSkyBlue,
+            visualDensity: VisualDensity.compact,
+          ),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: c.textPrimary,
+                fontSize: 13.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Text(
+            '$count',
+            style: TextStyle(color: c.textSecondary, fontSize: 12.5),
+          ),
+          const SizedBox(width: 6),
+        ],
+      ),
+    );
+  }
+
+  Widget _legendDot(AppColors c, Color color, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 6),
+        Text(label, style: TextStyle(color: c.textSecondary, fontSize: 11.5)),
+      ],
+    );
+  }
+
+  // One report in the side panel: the depth (in its risk color) is what
+  // matters most, so it leads. Clicking jumps the map there and opens it.
+  Widget _pinRow(AppColors c, FloodZone z) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(10),
+      onTap: () => _showZone(context, z),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 58,
+              child: Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: '${z.depthCm.round()}',
+                      style: TextStyle(
+                        color: z.risk.color,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    TextSpan(
+                      text: ' cm',
+                      style: TextStyle(color: c.textSecondary, fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Brgy. ${z.barangay}',
+                    style: TextStyle(
+                      color: c.textPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${FloodLevel.of(z.depthCm).label} · ${z.updated}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: c.textSecondary, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, size: 20, color: c.textSecondary),
+          ],
+        ),
+      ),
+    );
+  }
+
   // Shortcut to Report incident (same screen as in Assistance).
   Widget _reportButton(AppColors c) {
     return Tooltip(
@@ -345,18 +622,21 @@ class _MapTabState extends State<MapTab> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            color: const Color(0xFFF97316), // same as Assistance
+            // A darker orange than the Assistance tile, so the white text
+            // is easy to read.
+            color: const Color(0xFFC2410C),
             borderRadius: BorderRadius.circular(14),
             boxShadow: [BoxShadow(color: c.shadow, blurRadius: 10)],
           ),
-          child: const Row(
+          child: Row(
             mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.campaign_rounded, color: Colors.white, size: 20),
-              SizedBox(width: 8),
+              const Icon(Icons.campaign_rounded, color: Colors.white, size: 20),
+              const SizedBox(width: 8),
               Text(
                 'Report',
-                style: TextStyle(
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
@@ -452,6 +732,7 @@ class _MapTabState extends State<MapTab> {
     _map.move(z.point, 15);
     showAppSheet(
       context,
+      maxWidth: 600,
       builder: (sheet) {
         final c = AppColors(sheet);
         return Column(
@@ -492,6 +773,9 @@ class _MapTabState extends State<MapTab> {
                 ),
               ],
             ),
+            const SizedBox(height: 10),
+            // Who posted it. Tap the name for their profile card.
+            PostedBy(z.uploader),
             const SizedBox(height: 12),
             _PinDates(zone: z),
             Padding(
@@ -538,7 +822,7 @@ class _MapTabState extends State<MapTab> {
               ),
             ),
             const SizedBox(height: 18),
-            _VoteBar(zone: z),
+            VoteBar(zone: z),
             const SizedBox(height: 22),
             GradientButton(
               label: 'Directions',
@@ -674,14 +958,16 @@ class _MapTabState extends State<MapTab> {
   };
 }
 
-/// A flood pin: a small tag with the depth ("45 cm") above a dot that
-/// sits exactly on the spot. High-risk dots send out a ring that keeps
-/// growing and fading (like a radar ping) so they stand out.
+/// A flood pin: a classic map pin (colored by risk) whose tip sits exactly
+/// on the spot, with the depth ("45 cm") in a small tag above it.
+/// High-risk pins send out a ring on the ground that keeps growing and
+/// fading (like a radar ping) so they stand out.
 ///
-/// The marker is a square with the dot in its center, because flutter_map
-/// puts the center of a marker on its `point`. The tag uses the top half.
+/// flutter_map puts the CENTER of a marker on its `point`, so the marker
+/// is a square with the pin's tip at its center; the pin and tag use the
+/// top half (and taps anywhere on them count).
 class _DepthPin extends StatefulWidget {
-  static const double size = 80;
+  static const double size = 112;
   final FloodZone zone;
   final VoidCallback onTap;
   const _DepthPin({required this.zone, required this.onTap});
@@ -726,59 +1012,51 @@ class _DepthPinState extends State<_DepthPin>
           onTap: widget.onTap,
           child: Stack(
             alignment: Alignment.center,
-            clipBehavior: Clip.none,
             children: [
+              // The ping ring, flattened like a shadow on the ground.
               if (_pulse)
                 AnimatedBuilder(
                   animation: _ctrl,
                   builder: (context, _) => Container(
-                    width: 12 + 36 * _ctrl.value,
-                    height: 12 + 36 * _ctrl.value,
+                    width: 10 + 40 * _ctrl.value,
+                    height: (10 + 40 * _ctrl.value) * 0.45,
                     decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: color.withValues(alpha: 0.4 * (1 - _ctrl.value)),
+                      borderRadius: BorderRadius.circular(40),
+                      color: color.withValues(alpha: 0.45 * (1 - _ctrl.value)),
                     ),
                   ),
                 ),
-              Container(
-                width: 12,
-                height: 12,
-                decoration: BoxDecoration(
-                  color: color,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 2),
-                ),
-              ),
               Positioned(
-                bottom: half + 8,
+                bottom: half,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 7,
-                        vertical: 3,
+                        horizontal: 6,
+                        vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: color,
+                        color: Colors.white,
                         borderRadius: BorderRadius.circular(6),
                         boxShadow: const [
-                          BoxShadow(color: Color(0x40000000), blurRadius: 6),
+                          BoxShadow(color: Color(0x40000000), blurRadius: 4),
                         ],
                       ),
                       child: Text(
                         dry ? 'Dry' : formatCm(z.depthCm),
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: Color.lerp(color, Colors.black, 0.35),
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
-                          fontFeatures: [FontFeature.tabularFigures()],
+                          fontFeatures: const [FontFeature.tabularFigures()],
                         ),
                       ),
                     ),
+                    const SizedBox(height: 3),
                     CustomPaint(
-                      size: const Size(8, 5),
-                      painter: _TagPointer(color),
+                      size: const Size(28, 36),
+                      painter: _PinShape(color),
                     ),
                   ],
                 ),
@@ -791,24 +1069,40 @@ class _DepthPinState extends State<_DepthPin>
   }
 }
 
-/// The little downward triangle under a pin's tag.
-class _TagPointer extends CustomPainter {
+/// The map-pin shape: a round head that narrows to a point at the bottom,
+/// with a white dot in the head, a white outline, and a soft shadow.
+class _PinShape extends CustomPainter {
   final Color color;
-  _TagPointer(this.color);
+  _PinShape(this.color);
 
   @override
   void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final r = w / 2;
+    final head = Offset(r, r);
+    // Start at the tip, curve up the left side, go over the top of the
+    // round head, and curve back down the right side to the tip.
+    final path = Path()
+      ..moveTo(r, h)
+      ..cubicTo(r - r * 0.3, h - r * 0.9, 0, r + r * 0.8, 0, r)
+      ..arcTo(Rect.fromCircle(center: head, radius: r), math.pi, math.pi, false)
+      ..cubicTo(w, r + r * 0.8, r + r * 0.3, h - r * 0.9, r, h)
+      ..close();
+    canvas.drawShadow(path, Colors.black, 3, false);
+    canvas.drawPath(path, Paint()..color = color);
     canvas.drawPath(
-      Path()
-        ..lineTo(size.width, 0)
-        ..lineTo(size.width / 2, size.height)
-        ..close(),
-      Paint()..color = color,
+      path,
+      Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2,
     );
+    canvas.drawCircle(head, r * 0.36, Paint()..color = Colors.white);
   }
 
   @override
-  bool shouldRepaint(covariant _TagPointer old) => old.color != color;
+  bool shouldRepaint(_PinShape old) => old.color != color;
 }
 
 /// "Sample photo" label and photo credit, on a dark fade so it stays
@@ -923,110 +1217,6 @@ class _ZonePhoto extends StatelessWidget {
                 ],
               ),
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Thumbs up/down on a flood pin. One vote per user, like Facebook: tap
-/// the same thumb again to take it back, or the other one to switch.
-/// Guests get a "log in" popup instead.
-class _VoteBar extends StatelessWidget {
-  final FloodZone zone;
-  const _VoteBar({required this.zone});
-
-  void _tap(BuildContext context, Vote vote) {
-    if (isGuest) {
-      showLoginRequired(context, action: 'vote');
-      return;
-    }
-    final votes = {...myVotes.value};
-    if (votes[zone.barangay] == vote) {
-      votes.remove(zone.barangay);
-    } else {
-      votes[zone.barangay] = vote;
-    }
-    myVotes.value = votes;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final c = AppColors(context);
-    // Rebuilds only this bar (not the whole sheet) when a vote changes.
-    return ValueListenableBuilder(
-      valueListenable: myVotes,
-      builder: (context, votes, _) {
-        final mine = votes[zone.barangay];
-        return Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Was this report helpful?',
-                style: TextStyle(color: c.textSecondary, fontSize: 13),
-              ),
-            ),
-            _button(
-              c,
-              Icons.thumb_up_rounded,
-              'Helpful',
-              zone.upVotes + (mine == Vote.up ? 1 : 0),
-              kSafe,
-              mine == Vote.up,
-              () => _tap(context, Vote.up),
-            ),
-            const SizedBox(width: 8),
-            _button(
-              c,
-              Icons.thumb_down_rounded,
-              'Not helpful',
-              zone.downVotes + (mine == Vote.down ? 1 : 0),
-              kDanger,
-              mine == Vote.down,
-              () => _tap(context, Vote.down),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _button(
-    AppColors c,
-    IconData icon,
-    String tooltip,
-    int count,
-    Color color,
-    bool selected,
-    VoidCallback onTap,
-  ) {
-    return Tooltip(
-      message: tooltip,
-      child: PressableScale(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: selected ? color.withValues(alpha: 0.15) : null,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: selected ? color : c.border),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 16, color: selected ? color : c.textSecondary),
-              const SizedBox(width: 6),
-              Text(
-                '$count',
-                style: TextStyle(
-                  color: selected ? color : c.textPrimary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
           ),
         ),
       ),

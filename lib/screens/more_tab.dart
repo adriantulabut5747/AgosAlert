@@ -81,7 +81,7 @@ class MoreTab extends StatelessWidget {
               Icons.logout_rounded,
               'Log out',
               kDanger,
-              () => _confirmLogout(context),
+              () => confirmLogout(context),
               destructive: true,
             ),
           ]),
@@ -159,7 +159,7 @@ class MoreTab extends StatelessWidget {
                                 size: 32,
                               )
                             : const Text(
-                                'AP',
+                                kDemoUserInitials,
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 22,
@@ -173,7 +173,7 @@ class MoreTab extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              isGuest ? 'Guest' : 'AC Parcore',
+                              isGuest ? 'Guest' : kDemoUserName,
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 19,
@@ -183,7 +183,7 @@ class MoreTab extends StatelessWidget {
                             Text(
                               isGuest
                                   ? 'Log in to vote and upload'
-                                  : 'ac.parcore@mcc.edu.ph',
+                                  : kDemoUserEmail,
                               style: const TextStyle(
                                 color: Color(0xD9FFFFFF),
                                 fontSize: 12.5,
@@ -373,50 +373,6 @@ class MoreTab extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-
-  void _confirmLogout(BuildContext context) {
-    showAppSheet(
-      context,
-      builder: (sheet) {
-        final c = AppColors(sheet);
-        return Column(
-          children: [
-            const IconBadge(Icons.logout_rounded, kDanger, size: 60),
-            const SizedBox(height: 14),
-            Text(
-              'Log out?',
-              style: TextStyle(
-                color: c.textPrimary,
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'You\'ll stop getting alerts on this device.',
-              style: TextStyle(color: c.textSecondary, fontSize: 13),
-            ),
-            const SizedBox(height: 20),
-            GradientButton(
-              label: 'Log out',
-              gradient: const LinearGradient(
-                colors: [Color(0xFFDC2626), Color(0xFFEF4444)],
-              ),
-              onPressed: () => Navigator.of(context).pushAndRemoveUntil(
-                slideRoute(const LoginScreen()),
-                (_) => false,
-              ),
-            ),
-            const SizedBox(height: 6),
-            TextButton(
-              onPressed: () => Navigator.of(sheet).pop(),
-              child: Text('Cancel', style: TextStyle(color: c.textSecondary)),
-            ),
-          ],
-        );
-      },
     );
   }
 }

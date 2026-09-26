@@ -9,7 +9,6 @@ import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/flood_depth.dart';
 import '../widgets/map_tiles.dart';
-import 'assistance_tab.dart';
 
 /// ============================================================
 /// REPORT INCIDENT — type, severity, photo, location, notes

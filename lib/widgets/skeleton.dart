@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
+import 'responsive.dart';
 import 'common.dart';
 
 /// ============================================================
@@ -281,6 +282,62 @@ class FormPageSkeleton extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Placeholder for a tab while its code downloads (Alerts, Assistance,
+/// More): a page title, a row of filters, and a few cards. On desktops the
+/// cards sit in two columns, like the real pages.
+class ListPageSkeleton extends StatelessWidget {
+  const ListPageSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final desktop = screenSizeOf(context) == ScreenSize.desktop;
+    Widget cards(int n) => Column(
+      spacing: 12,
+      children: [
+        for (var i = 0; i < n; i++) const SkeletonBox(height: 92, radius: 20),
+      ],
+    );
+    return Shimmer(
+      child: ListView(
+        physics: const NeverScrollableScrollPhysics(),
+        padding: pagePadding(context),
+        children: [
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: SkeletonBox(width: 180, height: 26, radius: 8),
+          ),
+          const SizedBox(height: 8),
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: SkeletonBox(width: 140, height: 12, radius: 6),
+          ),
+          const SizedBox(height: 22),
+          const Row(
+            spacing: 8,
+            children: [
+              SkeletonBox(width: 70, height: 36, radius: 18),
+              SkeletonBox(width: 90, height: 36, radius: 18),
+              SkeletonBox(width: 90, height: 36, radius: 18),
+            ],
+          ),
+          const SizedBox(height: 18),
+          if (desktop)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              spacing: 24,
+              children: [
+                SizedBox(width: 420, child: cards(5)),
+                const Expanded(child: SkeletonBox(height: 480, radius: 20)),
+              ],
+            )
+          else
+            cards(5),
+        ],
       ),
     );
   }

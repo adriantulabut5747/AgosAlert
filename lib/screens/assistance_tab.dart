@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/demo_data.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/responsive.dart';
 import '../widgets/links.dart';
 import 'evacuation_centers_screen.dart';
 import 'deferred_screens.dart';
@@ -25,29 +26,69 @@ class _AssistanceTabState extends State<AssistanceTab> {
   @override
   Widget build(BuildContext context) {
     final c = AppColors(context);
+    final sos = FadeSlideIn(
+      child: _SosCard(onActivated: () => _sosSheet(context)),
+    );
+    final quickHelp = FadeSlideIn(
+      delay: const Duration(milliseconds: 100),
+      child: _quickHelp(context, c),
+    );
+    final hotlines = FadeSlideIn(
+      delay: const Duration(milliseconds: 180),
+      child: _hotlines(context, c),
+    );
+    final goBag = FadeSlideIn(
+      delay: const Duration(milliseconds: 240),
+      child: _goBag(c),
+    );
+    final note = Text(
+      'Numbers sourced from Mabalacat City government channels. Verify locally before relying on them in an actual emergency.',
+      style: TextStyle(color: c.textSecondary, fontSize: 11, height: 1.45),
+    );
+    // Desktop: SOS next to the quick-help tiles, then hotlines next to
+    // the go-bag checklist. Phones and tablets: one column, as before.
+    if (screenSizeOf(context) == ScreenSize.desktop) {
+      return ListView(
+        padding: pagePadding(context),
+        children: [
+          const PageHeader('Emergency help', subtitle: 'Help is one tap away'),
+          const SizedBox(height: 24),
+          TwoColumns(
+            leftFlex: 5,
+            rightFlex: 7,
+            // A heading on both sides, so the two titles line up.
+            left: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [const SectionHeader('In an emergency'), sos],
+              ),
+            ],
+            right: [quickHelp],
+          ),
+          const SizedBox(height: 28),
+          TwoColumns(
+            leftFlex: 7,
+            rightFlex: 5,
+            left: [hotlines, note],
+            right: [goBag],
+          ),
+        ],
+      );
+    }
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
+      padding: pagePadding(context),
       children: [
         const PageHeader('Emergency help', subtitle: 'Help is one tap away'),
         const SizedBox(height: 18),
-        FadeSlideIn(child: _SosCard(onActivated: () => _sosSheet(context))),
+        sos,
         const SizedBox(height: 26),
-        FadeSlideIn(
-          delay: const Duration(milliseconds: 100),
-          child: _quickHelp(context, c),
-        ),
+        quickHelp,
         const SizedBox(height: 26),
-        FadeSlideIn(
-          delay: const Duration(milliseconds: 180),
-          child: _hotlines(context, c),
-        ),
+        hotlines,
         const SizedBox(height: 26),
-        FadeSlideIn(delay: const Duration(milliseconds: 240), child: _goBag(c)),
+        goBag,
         const SizedBox(height: 18),
-        Text(
-          'Numbers sourced from Mabalacat City government channels. Verify locally before relying on them in an actual emergency.',
-          style: TextStyle(color: c.textSecondary, fontSize: 11, height: 1.45),
-        ),
+        note,
       ],
     );
   }
@@ -88,53 +129,61 @@ class _AssistanceTabState extends State<AssistanceTab> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionHeader('Quick help'),
-        GridView.count(
-          padding: EdgeInsets.zero,
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: 1.3,
-          children: [
-            for (final (icon, title, sub, color, onTap) in items)
-              AppCard(
-                onTap: onTap,
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    IconBadge(icon, color, size: 42, squircle: true),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          style: TextStyle(
-                            color: c.textPrimary,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 13.5,
-                          ),
-                        ),
-                        Text(
-                          sub,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: c.textSecondary,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-          ],
+        const SectionHeader('Get help'),
+        // A plain list, like a phone's settings: easy to scan, and the
+        // colored icons are enough to tell the options apart.
+        AppCard(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Column(
+            children: [
+              for (var i = 0; i < items.length; i++) ...[
+                if (i > 0) Divider(height: 1, indent: 56, color: c.border),
+                _helpRow(c, items[i]),
+              ],
+            ],
+          ),
         ),
       ],
+    );
+  }
+
+  Widget _helpRow(
+    AppColors c,
+    (IconData, String, String, Color, VoidCallback) item,
+  ) {
+    final (icon, title, sub, color, onTap) = item;
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 14, 12, 14),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 22),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: c.textPrimary,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    sub,
+                    style: TextStyle(color: c.textSecondary, fontSize: 12.5),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, color: c.textSecondary),
+          ],
+        ),
+      ),
     );
   }
 
@@ -599,8 +648,7 @@ class _AssistanceTabState extends State<AssistanceTab> {
                     showSuccessDialog(
                       context,
                       title: 'Report submitted (demo)',
-                      message:
-                          'In the full app, this would go to the Admins. Nothing was actually sent — contact the police (PNP) directly.',
+                      message: 'In the full app, this would go to the Admins. Nothing was actually sent — contact the police (PNP) directly.',
                     );
                   },
                 ),
@@ -628,50 +676,6 @@ class _AssistanceTabState extends State<AssistanceTab> {
           icon,
           color: onTap == null ? c.textSecondary : c.accent,
           size: 22,
-        ),
-      ),
-    );
-  }
-}
-
-/// Barangay picker used by the rescue, missing person and report forms.
-class BarangayDropdown extends StatelessWidget {
-  final String value;
-  final ValueChanged<String> onChanged;
-  const BarangayDropdown({
-    required this.value,
-    required this.onChanged,
-    super.key,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final c = AppColors(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: BoxDecoration(
-        color: c.surfaceAlt,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: value,
-          isExpanded: true,
-          dropdownColor: c.surface,
-          borderRadius: BorderRadius.circular(16),
-          menuMaxHeight: 320,
-          icon: Icon(Icons.expand_more_rounded, color: c.textSecondary),
-          style: TextStyle(
-            color: c.textPrimary,
-            fontFamily: kFontFamily,
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
-          items: [
-            for (final b in kBarangays)
-              DropdownMenuItem(value: b, child: Text('Brgy. $b')),
-          ],
-          onChanged: (v) => onChanged(v!),
         ),
       ),
     );
@@ -718,44 +722,37 @@ class _SosCardState extends State<_SosCard> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors(context);
+    // A plain card with a thin red edge: the red button is the only loud
+    // thing on it, so the eye goes straight there.
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
+      padding: const EdgeInsets.fromLTRB(22, 20, 16, 20),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        gradient: const LinearGradient(
-          colors: [Color(0xFF7F1D1D), Color(0xFFB91C1C)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: kDanger.withValues(alpha: 0.35),
-            blurRadius: 30,
-            offset: const Offset(0, 12),
-          ),
-        ],
+        color: c.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: kDanger.withValues(alpha: 0.35)),
       ),
       child: Row(
         children: [
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'In danger?',
                   style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
+                    color: c.textPrimary,
+                    fontSize: 21,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                SizedBox(height: 6),
+                const SizedBox(height: 6),
                 Text(
-                  'Press and hold the SOS button to call for help or request a rescue.',
+                  'Press and hold SOS until the ring fills to call for help or request a rescue.',
                   style: TextStyle(
-                    color: Color(0xD9FFFFFF),
-                    fontSize: 12.5,
-                    height: 1.4,
+                    color: c.textSecondary,
+                    fontSize: 13,
+                    height: 1.45,
                   ),
                 ),
               ],
@@ -795,8 +792,8 @@ class _SosCardState extends State<_SosCard> with TickerProviderStateMixin {
                               height: 76 + 40 * t,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: Colors.white.withValues(
-                                  alpha: 0.18 * (1 - t),
+                                color: kDanger.withValues(
+                                  alpha: 0.16 * (1 - t),
                                 ),
                               ),
                             );
@@ -810,7 +807,7 @@ class _SosCardState extends State<_SosCard> with TickerProviderStateMixin {
                           value: _hold.value,
                           strokeWidth: 5,
                           strokeCap: StrokeCap.round,
-                          color: Colors.white,
+                          color: kDanger,
                           backgroundColor: Colors.transparent,
                         ),
                       ),
@@ -823,18 +820,7 @@ class _SosCardState extends State<_SosCard> with TickerProviderStateMixin {
                           height: 76,
                           decoration: const BoxDecoration(
                             shape: BoxShape.circle,
-                            gradient: LinearGradient(
-                              colors: [Color(0xFFEF4444), Color(0xFFF97316)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Color(0x66000000),
-                                blurRadius: 16,
-                                offset: Offset(0, 6),
-                              ),
-                            ],
+                            color: Color(0xFFDC2626),
                           ),
                           alignment: Alignment.center,
                           child: const Text(

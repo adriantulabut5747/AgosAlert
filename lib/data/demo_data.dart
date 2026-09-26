@@ -68,6 +68,52 @@ const Map<String, LatLng> kBarangayPoints = {
 const String kFloodPhotoCredit =
     'Sample photo · Apalit, Pampanga, 2023 · E911a, CC BY-SA 4.0';
 
+/// A real photo of a local place, from Wikimedia Commons. [credit] must be
+/// shown wherever the photo is (the licenses require it), and all of them
+/// are listed on the About screen. Swap in the group's own photos later
+/// by replacing the files (keep the names) and updating the credits.
+class LocalPhoto {
+  final String asset;
+  final String place;
+  final String credit;
+  const LocalPhoto(this.asset, this.place, this.credit);
+}
+
+const kPhotoSacobia = LocalPhoto(
+  'assets/images/photo_sacobia_river.jpg',
+  'Sacobia River and Mt. Arayat, seen from Bamban',
+  'Ralff Nestor Nacor, CC BY-SA 4.0',
+);
+const kPhotoSunset = LocalPhoto(
+  'assets/images/photo_sunset.jpg',
+  'Sunset in Mabalacat City',
+  'Pancit Canton Media, CC0',
+);
+const kPhotoDauBridge = LocalPhoto(
+  'assets/images/photo_dau_bridge.jpg',
+  'Dau Bridge, MacArthur Highway',
+  'Ralff Nestor Nacor, CC BY-SA 4.0',
+);
+const kPhotoMabuhayArch = LocalPhoto(
+  'assets/images/photo_mabuhay_arch.jpg',
+  'The old "Mabuhay" welcome arch of Mabalacat',
+  'P199, CC BY-SA 3.0',
+);
+const List<LocalPhoto> kLocalPhotos = [
+  kPhotoSacobia,
+  kPhotoSunset,
+  kPhotoDauBridge,
+  kPhotoMabuhayArch,
+];
+
+/// Photos of an alert's area (of the PLACE, not of the flood itself).
+const Map<String, LocalPhoto> kAreaPhotos = {'Brgy. Dau': kPhotoDauBridge};
+
+/// The demo account shown in the profile menu and on the More tab.
+const String kDemoUserName = 'AC Parcore';
+const String kDemoUserEmail = 'ac.parcore@mcc.edu.ph';
+const String kDemoUserInitials = 'AP';
+
 class FloodZone {
   final String barangay;
   final LatLng point;
@@ -82,6 +128,10 @@ class FloodZone {
   // How long ago the pin's photo was taken. Pins are removed
   // [kPinLifetime] after that.
   final Duration photoAge;
+  // Who posted this report (shown in the pin popup and the Home feed):
+  // their position in [kUploaders].
+  final int uploaderIndex;
+  Uploader get uploader => kUploaders[uploaderIndex];
   const FloodZone(
     this.barangay,
     this.point,
@@ -92,6 +142,7 @@ class FloodZone {
     this.upVotes = 0,
     this.downVotes = 0,
     this.photoAge = Duration.zero,
+    this.uploaderIndex = 0,
   });
 
   /// Optional photo, e.g. assets/images/flood_dau.jpg or
@@ -104,6 +155,43 @@ class FloodZone {
   Duration get timeLeft => kPinLifetime - photoAge;
   bool get expired => timeLeft <= Duration.zero;
 }
+
+/// A resident who posts flood reports. Sample people (made-up names).
+class Uploader {
+  final String name;
+  final String barangay;
+  final int reports; // how many reports they've posted
+  final int upVotes; // thumbs up on all their reports
+  final int downVotes;
+  const Uploader(
+    this.name,
+    this.barangay,
+    this.reports,
+    this.upVotes,
+    this.downVotes,
+  );
+
+  /// "Rafael Dizon" -> "RD".
+  String get initials => name
+      .split(' ')
+      .where((w) => w.isNotEmpty)
+      .take(2)
+      .map((w) => w[0])
+      .join();
+}
+
+const List<Uploader> kUploaders = [
+  Uploader('Rafael Dizon', 'Dau', 14, 212, 9),
+  Uploader('Maricel Manalang', 'Tabun', 6, 88, 4),
+  Uploader('Jerome David', 'Mabiga', 9, 131, 7),
+  Uploader('Kristine Pangilinan', 'Duquit', 3, 27, 2),
+  Uploader('Paolo Lansangan', 'Dolores', 5, 46, 1),
+  Uploader('Andrea Tolentino', 'Camachiles', 8, 97, 6),
+];
+
+/// Set by "View on map" (Home feed): the Map tab opens this pin, then
+/// sets it back to null.
+final ValueNotifier<FloodZone?> focusedZone = ValueNotifier(null);
 
 /// Pins users post are deleted this long after their photo was taken, so
 /// old photos don't look like what's happening now.
@@ -121,6 +209,7 @@ const List<FloodZone> kFloodZones = [
     upVotes: 42,
     downVotes: 3,
     photoAge: Duration(hours: 5),
+    uploaderIndex: 0,
   ),
   FloodZone(
     'Tabun',
@@ -132,6 +221,7 @@ const List<FloodZone> kFloodZones = [
     upVotes: 27,
     downVotes: 5,
     photoAge: Duration(days: 1, hours: 3),
+    uploaderIndex: 1,
   ),
   FloodZone(
     'Mabiga',
@@ -143,6 +233,7 @@ const List<FloodZone> kFloodZones = [
     upVotes: 19,
     downVotes: 2,
     photoAge: Duration(days: 3, hours: 7),
+    uploaderIndex: 2,
   ),
   FloodZone(
     'Duquit',
@@ -154,6 +245,7 @@ const List<FloodZone> kFloodZones = [
     upVotes: 8,
     downVotes: 1,
     photoAge: Duration(days: 9, hours: 2),
+    uploaderIndex: 3,
   ),
   FloodZone(
     'Dolores',
@@ -165,6 +257,7 @@ const List<FloodZone> kFloodZones = [
     upVotes: 11,
     downVotes: 0,
     photoAge: Duration(days: 12, hours: 20),
+    uploaderIndex: 4,
   ),
   FloodZone(
     'Camachiles',
@@ -176,40 +269,13 @@ const List<FloodZone> kFloodZones = [
     upVotes: 15,
     downVotes: 4,
     photoAge: Duration(days: 6),
+    uploaderIndex: 5,
   ),
 ];
 
 /// Flood pins that haven't reached [kPinLifetime] yet.
 Iterable<FloodZone> get activeFloodZones =>
     kFloodZones.where((z) => !z.expired);
-
-class River {
-  final String name;
-  final String location;
-  final double level; // meters
-  final double critical; // meters
-  final double change; // meters in the last hour (+ rising, - falling)
-  const River(this.name, this.location, this.level, this.critical, this.change);
-
-  // How full the river is compared to its danger level, from 0.0 to 1.0.
-  // Example: Sacobia 4.2 m / 5.0 m critical = 0.84 (84%).
-  // clamp keeps it at 1.0 even if the river goes above critical, so the
-  // progress bar on Home never draws past 100%.
-  double get ratio => (level / critical).clamp(0.0, 1.0);
-  // 80% or more of critical = High, 50% or more = Moderate, else Normal.
-  // (A chained "a ? b : c ? d : e" works like if / else if / else.)
-  RiskLevel get risk => ratio >= 0.8
-      ? RiskLevel.high
-      : ratio >= 0.5
-      ? RiskLevel.moderate
-      : RiskLevel.normal;
-}
-
-const List<River> kRivers = [
-  River('Sacobia River', 'Brgy. Tabun', 4.2, 5.0, 0.3),
-  River('Abacan River', 'Brgy. Dau', 2.8, 5.0, 0.1),
-  River('Sapang Balen Creek', 'Brgy. Sapang Balen', 1.6, 4.0, -0.1),
-];
 
 class EvacuationCenter {
   final String name;
@@ -522,8 +588,8 @@ const List<(String, String)> kFaqs = [
     'No. It is estimated from the rainfall forecast. Always follow official warnings from PAGASA and local authorities.',
   ),
   (
-    'Are the river levels and flood zones live?',
-    'Not yet. Sections marked SAMPLE show demo data while live sensor data is being connected.',
+    'Are the flood reports and evacuation centers live?',
+    'Not yet. Sections marked SAMPLE show demo data until reports and updates come from a real server. The weather is live.',
   ),
   (
     'How do I call a hotline?',

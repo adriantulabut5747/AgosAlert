@@ -15,8 +15,13 @@ import 'package:agosalert/theme.dart';
 import 'package:agosalert/widgets/flood_depth.dart';
 
 /// Shows [page] on a phone-sized screen (390 x 844, like an iPhone).
-Future<void> pumpPhone(WidgetTester tester, Widget page) async {
-  tester.view.physicalSize = const Size(390, 844);
+/// Pass [size] to try another screen, e.g. a desktop browser window.
+Future<void> pumpPhone(
+  WidgetTester tester,
+  Widget page, {
+  Size size = const Size(390, 844),
+}) async {
+  tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(MaterialApp(theme: buildDarkTheme(), home: page));
@@ -42,6 +47,50 @@ void main() {
       await tester.tap(find.text(tab).last);
       await tester.pump(const Duration(seconds: 1));
     }
+  });
+
+  // Website layout: nav at the top, every tab renders without overflow.
+  for (final (name, size) in [
+    ('Desktop', const Size(1440, 900)),
+    ('Small laptop', const Size(1024, 700)),
+    ('Tablet', const Size(800, 1100)),
+  ]) {
+    testWidgets('$name: top nav and every tab render', (tester) async {
+      await pumpPhone(tester, const HomeShell(), size: size);
+      // No More tab on wide screens (it's in the profile menu).
+      expect(find.text('More'), findsNothing);
+      for (final tab in ['Map', 'Alerts', 'Assistance', 'Home']) {
+        await tester.tap(
+          size.width >= 1024 ? find.text(tab).first : find.byTooltip(tab),
+        );
+        await tester.pump(const Duration(seconds: 1));
+      }
+    });
+  }
+
+  testWidgets('Desktop: clicking a pin in the side list opens it', (
+    tester,
+  ) async {
+    await pumpPhone(
+      tester,
+      const Scaffold(body: MapTab()),
+      size: const Size(1440, 900),
+    );
+    await tester.tap(find.text('Brgy. Dau'));
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('Was this report helpful?'), findsOneWidget);
+  });
+
+  testWidgets('Desktop: the profile menu has Settings and Log out', (
+    tester,
+  ) async {
+    isGuest = false;
+    await pumpPhone(tester, const HomeShell(), size: const Size(1440, 900));
+    await tester.tap(find.byTooltip('Account'));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('Settings'), findsOneWidget);
+    expect(find.text('Log out'), findsOneWidget);
+    expect(find.text('Votes on your uploads'), findsOneWidget);
   });
 
   // Regression test: switching tabs must hide the previous tab
@@ -97,18 +146,19 @@ void main() {
 
   testWidgets('Tapping a flood pin shows its depth', (tester) async {
     await pumpPhone(tester, const Scaffold(body: MapTab()));
-    await tester.tap(find.text('65 cm'));
+    await tester.tap(find.text('40 cm'));
     await tester.pump(const Duration(seconds: 1));
-    expect(find.text('Brgy. Dau'), findsOneWidget);
+    expect(find.text('Brgy. Tabun'), findsOneWidget);
     expect(find.text('Knee-deep'), findsOneWidget);
-    expect(find.text('≈ 2.1 ft'), findsOneWidget);
-    expect(find.text('No vehicles should pass'), findsOneWidget);
+    expect(find.text('≈ 1.3 ft'), findsOneWidget);
+    expect(find.text('Too deep for cars'), findsOneWidget);
   });
 
-  // Opens Dau's pin (42 up, 3 down).
+  // Opens Dau's pin (42 up, 3 down) the way "View on map" on the Home
+  // feed does: by setting focusedZone.
   Future<void> openDau(WidgetTester tester) async {
     await pumpPhone(tester, const Scaffold(body: MapTab()));
-    await tester.tap(find.text('65 cm'));
+    focusedZone.value = kFloodZones.first;
     await tester.pump(const Duration(seconds: 1));
     // The first pump starts the sheet's slide-in; this one finishes it.
     await tester.pump(const Duration(seconds: 1));

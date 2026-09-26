@@ -5,13 +5,13 @@ import 'package:flutter/material.dart';
 import '../data/demo_data.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
-import 'alerts_tab.dart';
-import 'assistance_tab.dart';
+import '../widgets/responsive.dart';
 import 'home_tab.dart';
+import 'login_screen.dart';
 import 'deferred_screens.dart';
-import 'more_tab.dart';
 
-/// On wide screens (laptop browsers), keep the app phone-width and centered.
+/// Phones only: keeps the phone layout from stretching (wider screens get
+/// the website layout, see _wideLayout).
 const double kMaxContentWidth = 560;
 
 /// ============================================================
@@ -50,9 +50,9 @@ class HomeShellState extends State<HomeShell> {
   static final _tabs = [
     const HomeTab(),
     deferredMapTab(),
-    const AlertsTab(),
-    const AssistanceTab(),
-    const MoreTab(),
+    deferredAlertsTab(),
+    deferredAssistanceTab(),
+    deferredMoreTab(),
   ];
 
   // One entry per bottom-nav button: (icon when not selected, icon when
@@ -66,9 +66,29 @@ class HomeShellState extends State<HomeShell> {
     (Icons.grid_view_outlined, Icons.grid_view_rounded, 'More'),
   ];
 
+  // All opened tabs are stacked on top of each other, and only the active
+  // one is visible (see _TabLayer). This is what keeps each tab's scroll
+  // position when you switch away and come back. ValueKey(i) tells Flutter
+  // which layer is which tab, so it doesn't mix them up when a newly
+  // opened tab gets added to the Stack.
+  Widget _tabStack(int active) {
+    return Stack(
+      children: [
+        for (var i = 0; i < _tabs.length; i++)
+          if (_opened.contains(i))
+            _TabLayer(key: ValueKey(i), active: i == active, child: _tabs[i]),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = AppColors(context);
+    // Tablets and desktops get the website layout: nav at the top, no
+    // bottom bar. Resizing the browser window switches between the two
+    // on the fly (build runs again when the size changes).
+    final size = screenSizeOf(context);
+    if (size != ScreenSize.phone) return _wideLayout(c, size);
     return Scaffold(
       backgroundColor: Colors.transparent,
       extendBody: true,
@@ -81,25 +101,7 @@ class HomeShellState extends State<HomeShell> {
               child: Column(
                 children: [
                   _topBar(c),
-                  // All opened tabs are stacked on top of each other, and
-                  // only the active one is visible (see _TabLayer). This
-                  // is what keeps each tab's scroll position when you
-                  // switch away and come back. ValueKey(i) tells Flutter
-                  // which layer is which tab, so it doesn't mix them up
-                  // when a newly opened tab gets added to the Stack.
-                  Expanded(
-                    child: Stack(
-                      children: [
-                        for (var i = 0; i < _tabs.length; i++)
-                          if (_opened.contains(i))
-                            _TabLayer(
-                              key: ValueKey(i),
-                              active: i == _index,
-                              child: _tabs[i],
-                            ),
-                      ],
-                    ),
-                  ),
+                  Expanded(child: _tabStack(_index)),
                 ],
               ),
             ),
@@ -121,6 +123,176 @@ class HomeShellState extends State<HomeShell> {
       ),
     );
   }
+
+  // ------------------------------------------------------------
+  // Tablet / desktop layout
+  // ------------------------------------------------------------
+
+  Widget _wideLayout(AppColors c, ScreenSize size) {
+    // There's no More tab up top (its items live in the profile menu), so
+    // if the window was widened while More was open, show Home instead.
+    final active = _index == 4 ? 0 : _index;
+    final compact = size == ScreenSize.tablet;
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: GradientBackground(
+        child: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              _webTopBar(c, active, compact),
+              Expanded(child: _tabStack(active)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Logo on the left, the four tabs in the middle, bell / theme / profile
+  // on the right. On tablets ([compact]) the tabs show icons only.
+  Widget _webTopBar(AppColors c, int active, bool compact) {
+    return Container(
+      height: 64,
+      padding: EdgeInsets.symmetric(horizontal: compact ? 16 : 28),
+      decoration: BoxDecoration(
+        color: c.surface.withValues(alpha: c.isDark ? 0.5 : 0.85),
+        border: Border(bottom: BorderSide(color: c.border)),
+      ),
+      child: Row(
+        children: [
+          // The two Expanded sides are equally wide, which keeps the nav
+          // exactly in the middle of the window.
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Semantics(
+                button: true,
+                label: 'AgosAlert home',
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: GestureDetector(
+                    onTap: () => switchTab(0),
+                    child: BrandLogo.wordmark(height: compact ? 22 : 26),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          for (var i = 0; i < 4; i++) _webNavItem(c, i, i == active, compact),
+          Expanded(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                ValueListenableBuilder<Set<String>>(
+                  valueListenable: readAlerts,
+                  builder: (context, _, _) => _roundButton(
+                    c,
+                    icon: Icons.notifications_none_rounded,
+                    tooltip: 'Notifications',
+                    badge: unreadAlertCount,
+                    onTap: () => switchTab(2),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _roundButton(
+                  c,
+                  icon: c.isDark
+                      ? Icons.light_mode_rounded
+                      : Icons.dark_mode_rounded,
+                  tooltip: c.isDark
+                      ? 'Switch to light mode'
+                      : 'Switch to dark mode',
+                  color: c.isDark ? kLogoYellow : kSkyBlue,
+                  onTap: () => themeNotifier.value = c.isDark
+                      ? ThemeMode.light
+                      : ThemeMode.dark,
+                ),
+                Container(
+                  width: 1,
+                  height: 24,
+                  margin: const EdgeInsets.symmetric(horizontal: 12),
+                  color: c.border,
+                ),
+                _ProfileMenu(
+                  // The name next to the avatar only fits on wider windows.
+                  compact: MediaQuery.sizeOf(context).width < 1280,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _webNavItem(AppColors c, int i, bool selected, bool compact) {
+    final (outline, filled, label) = _items[i];
+    final fg = selected
+        ? (c.isDark ? kSkyBlueLight : kSkyBlue)
+        : c.textSecondary;
+    Widget icon = Icon(selected ? filled : outline, color: fg, size: 20);
+    // Unread dot on Alerts, like the phone's bottom nav.
+    if (i == 2) {
+      icon = ValueListenableBuilder<Set<String>>(
+        valueListenable: readAlerts,
+        builder: (context, _, child) => Badge(
+          isLabelVisible: unreadAlertCount > 0,
+          smallSize: 8,
+          backgroundColor: kDanger,
+          child: child,
+        ),
+        child: icon,
+      );
+    }
+    final item = Material(
+      color: selected
+          ? kSkyBlue.withValues(alpha: c.isDark ? 0.18 : 0.10)
+          : Colors.transparent,
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        hoverColor: c.textPrimary.withValues(alpha: 0.05),
+        onTap: () => switchTab(i),
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: compact ? 14 : 16,
+            vertical: 10,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              icon,
+              if (!compact) ...[
+                const SizedBox(width: 8),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: fg,
+                    fontSize: 14,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: Semantics(
+        button: true,
+        selected: selected,
+        label: compact ? label : null,
+        child: compact ? Tooltip(message: label, child: item) : item,
+      ),
+    );
+  }
+
+  // ------------------------------------------------------------
+  // Phone layout
+  // ------------------------------------------------------------
 
   Widget _topBar(AppColors c) {
     return Padding(
@@ -398,6 +570,269 @@ class HomeShellState extends State<HomeShell> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// The avatar button at the top right on tablets and desktops. It opens a
+/// dropdown with what the More tab has on phones: profile and votes,
+/// Settings, Help, About, and Log out (or Log in, for guests).
+class _ProfileMenu extends StatelessWidget {
+  final bool compact;
+  const _ProfileMenu({required this.compact});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = AppColors(context);
+    final itemStyle = MenuItemButton.styleFrom(
+      foregroundColor: c.textPrimary,
+      iconColor: c.textSecondary,
+      minimumSize: const Size(280, 46),
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      textStyle: const TextStyle(
+        fontFamily: kFontFamily,
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+      ),
+    );
+    return MenuAnchor(
+      alignmentOffset: const Offset(0, 10),
+      style: MenuStyle(
+        backgroundColor: WidgetStatePropertyAll(c.surface),
+        surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+        elevation: const WidgetStatePropertyAll(10),
+        shadowColor: WidgetStatePropertyAll(
+          Colors.black.withValues(alpha: 0.5),
+        ),
+        padding: const WidgetStatePropertyAll(EdgeInsets.all(8)),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: c.border),
+          ),
+        ),
+      ),
+      builder: (context, menu, _) => Tooltip(
+        message: 'Account',
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => menu.isOpen ? menu.close() : menu.open(),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(4, 4, 8, 4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const _Avatar(size: 34),
+                  if (!compact) ...[
+                    const SizedBox(width: 10),
+                    Text(
+                      isGuest ? 'Guest' : kDemoUserName,
+                      style: TextStyle(
+                        color: c.textPrimary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(width: 2),
+                  Icon(Icons.expand_more_rounded, color: c.textSecondary),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+      menuChildren: [
+        _header(c),
+        Divider(height: 17, color: c.border),
+        MenuItemButton(
+          style: itemStyle,
+          leadingIcon: const Icon(Icons.tune_rounded, size: 20),
+          onPressed: () => openSettings(context),
+          child: const Text('Settings'),
+        ),
+        MenuItemButton(
+          style: itemStyle,
+          leadingIcon: const Icon(Icons.help_outline_rounded, size: 20),
+          onPressed: () => openHelp(context),
+          child: const Text('Help & FAQ'),
+        ),
+        MenuItemButton(
+          style: itemStyle,
+          leadingIcon: const Icon(Icons.info_outline_rounded, size: 20),
+          onPressed: () => openAbout(context),
+          child: const Text('About AgosAlert'),
+        ),
+        Divider(height: 17, color: c.border),
+        if (isGuest)
+          MenuItemButton(
+            style: itemStyle,
+            leadingIcon: const Icon(Icons.login_rounded, size: 20),
+            onPressed: () => Navigator.of(
+              context,
+            ).pushAndRemoveUntil(slideRoute(const LoginScreen()), (_) => false),
+            child: const Text('Log in'),
+          )
+        else
+          MenuItemButton(
+            style: itemStyle.copyWith(
+              foregroundColor: const WidgetStatePropertyAll(kDanger),
+              iconColor: const WidgetStatePropertyAll(kDanger),
+            ),
+            leadingIcon: const Icon(Icons.logout_rounded, size: 20),
+            onPressed: () => confirmLogout(context),
+            child: const Text('Log out'),
+          ),
+      ],
+    );
+  }
+
+  // Name, email, and (for logged-in users) the votes on their uploads.
+  Widget _header(AppColors c) {
+    return SizedBox(
+      width: 280,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const _Avatar(size: 44),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isGuest ? 'Guest' : kDemoUserName,
+                        style: TextStyle(
+                          color: c.textPrimary,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      Text(
+                        isGuest ? 'Browsing as a guest' : kDemoUserEmail,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: c.textSecondary,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: c.surfaceAlt,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: isGuest
+                  ? Text(
+                      'Guests can only view. Log in to vote and upload.',
+                      style: TextStyle(
+                        color: c.textSecondary,
+                        fontSize: 12.5,
+                        height: 1.4,
+                      ),
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Votes on your uploads',
+                                style: TextStyle(
+                                  color: c.textSecondary,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            const SampleBadge(),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.thumb_up_rounded,
+                              size: 16,
+                              color: kSafe,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              '$kMyUpVotesReceived',
+                              style: TextStyle(
+                                color: c.textPrimary,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(width: 18),
+                            const Icon(
+                              Icons.thumb_down_rounded,
+                              size: 16,
+                              color: kDanger,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              '$kMyDownVotesReceived',
+                              style: TextStyle(
+                                color: c.textPrimary,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Round avatar with the user's initials (a person icon for guests).
+class _Avatar extends StatelessWidget {
+  final double size;
+  const _Avatar({required this.size});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: const BoxDecoration(
+        color: Color(0xFF2566B8),
+        shape: BoxShape.circle,
+      ),
+      child: isGuest
+          ? Icon(Icons.person_rounded, color: Colors.white, size: size * 0.6)
+          : Text(
+              kDemoUserInitials,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: size * 0.36,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
     );
   }
 }

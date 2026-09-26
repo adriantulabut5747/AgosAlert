@@ -3,13 +3,15 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+import '../data/demo_data.dart';
 import '../theme.dart';
+import 'responsive.dart';
 
 /// ============================================================
 /// SHARED WIDGETS — the building blocks every screen uses
 /// ============================================================
 
-/// Full-screen brand gradient with two soft glows for depth.
+/// Full-screen brand gradient with faint water lines across the top.
 class GradientBackground extends StatelessWidget {
   final Widget child;
   const GradientBackground({required this.child, super.key});
@@ -31,45 +33,155 @@ class GradientBackground extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          _glow(c, top: -140, right: -120, size: 340, color: kSkyBlue),
-          _glow(c, bottom: 80, left: -160, size: 320, color: kLogoCyan),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: WaterLines(
+              color: kSkyBlueLight.withValues(alpha: c.isDark ? 0.10 : 0.18),
+              height: 240,
+            ),
+          ),
           Positioned.fill(child: child),
         ],
       ),
     );
   }
+}
 
-  // One soft colored circle: strong color in the middle, fading to fully
-  // transparent at the edge (RadialGradient). Negative top/left/right
-  // values push it partly off-screen so only a corner of the glow shows.
-  // IgnorePointer makes taps pass straight through it to the content.
-  Widget _glow(
-    AppColors c, {
-    double? top,
-    double? bottom,
-    double? left,
-    double? right,
-    required double size,
-    required Color color,
-  }) {
-    return Positioned(
-      top: top,
-      bottom: bottom,
-      left: left,
-      right: right,
-      child: IgnorePointer(
-        child: Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: RadialGradient(
-              colors: [
-                color.withValues(alpha: c.isDark ? 0.22 : 0.16),
-                color.withValues(alpha: 0),
-              ],
+/// Thin, still wave lines, like the surface of a river: the app's
+/// signature pattern (backgrounds, the Home banner, the login screen).
+/// Drawn once, not animated, so it costs nothing while scrolling.
+class WaterLines extends StatelessWidget {
+  final Color color;
+  final double height;
+  final int count;
+  const WaterLines({
+    required this.color,
+    this.height = 160,
+    this.count = 6,
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: CustomPaint(
+        size: Size(double.infinity, height),
+        painter: _WaterLinesPainter(color, count),
+      ),
+    );
+  }
+}
+
+class _WaterLinesPainter extends CustomPainter {
+  final Color color;
+  final int count;
+  _WaterLinesPainter(this.color, this.count);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (var i = 0; i < count; i++) {
+      // Each line sits a bit lower, is a bit longer-waved, and fades a
+      // little, so together they look like ripples, not a pattern.
+      final y = size.height * (i + 1) / (count + 1);
+      final amp = 5 + i * 1.6;
+      final wave = 240 + i * 55;
+      final phase = i * 1.7;
+      final path = Path()..moveTo(0, y + amp * math.sin(phase));
+      for (double x = 8; x <= size.width + 8; x += 8) {
+        path.lineTo(x, y + amp * math.sin(x / wave * 2 * math.pi + phase));
+      }
+      canvas.drawPath(
+        path,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.2
+          ..color = color.withValues(alpha: color.a * (1 - i / (count * 1.6))),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_WaterLinesPainter old) =>
+      old.color != color || old.count != count;
+}
+
+/// A local photo (see [LocalPhoto]) filling its box, fading in once loaded,
+/// with its credit in a small label (the photo licenses require it).
+/// [overlay] is drawn on top of the photo, under the credit.
+class LocalPhotoView extends StatelessWidget {
+  final LocalPhoto photo;
+  final double? height;
+  final double radius;
+  final Widget? overlay;
+  final bool showPlace;
+  const LocalPhotoView(
+    this.photo, {
+    this.height,
+    this.radius = 20,
+    this.overlay,
+    this.showPlace = true,
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: SizedBox(
+        height: height,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Navy underneath, so the box never flashes white while the
+            // photo loads (or if it's missing).
+            const ColoredBox(color: kOceanBlue),
+            Image.asset(
+              photo.asset,
+              fit: BoxFit.cover,
+              gaplessPlayback: true,
+              frameBuilder: (context, child, frame, loadedAtOnce) =>
+                  loadedAtOnce
+                  ? child
+                  : AnimatedOpacity(
+                      opacity: frame == null ? 0 : 1,
+                      duration: const Duration(milliseconds: 400),
+                      child: child,
+                    ),
+              errorBuilder: (_, _, _) => const SizedBox.shrink(),
             ),
-          ),
+            ?overlay,
+            Positioned(
+              right: 8,
+              bottom: 8,
+              child: Tooltip(
+                message: '${photo.place} · ${photo.credit}',
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.45),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    showPlace
+                        ? '${photo.place} · ${photo.credit}'
+                        : photo.credit,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -210,6 +322,7 @@ class AppCard extends StatelessWidget {
   final EdgeInsets padding;
   final VoidCallback? onTap;
   final Color? borderColor;
+  final Color? color; // fill color; defaults to the surface color
   final Gradient? gradient;
   final double radius;
   const AppCard({
@@ -217,6 +330,7 @@ class AppCard extends StatelessWidget {
     this.padding = const EdgeInsets.all(16),
     this.onTap,
     this.borderColor,
+    this.color,
     this.gradient,
     this.radius = 20,
     super.key,
@@ -227,17 +341,21 @@ class AppCard extends StatelessWidget {
     final c = AppColors(context);
     final card = Container(
       decoration: BoxDecoration(
-        color: gradient == null ? c.surface : null,
+        color: gradient == null ? (color ?? c.surface) : null,
         gradient: gradient,
         borderRadius: BorderRadius.circular(radius),
         border: Border.all(color: borderColor ?? c.border),
-        boxShadow: [
-          BoxShadow(
-            color: c.shadow,
-            blurRadius: 18,
-            offset: const Offset(0, 6),
-          ),
-        ],
+        // Dark theme: the border alone separates cards (shadows barely
+        // show on navy and just muddy it). Light theme: a soft shadow.
+        boxShadow: c.isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: c.shadow,
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
       ),
       // A see-through Material so tap ripples (InkWell, ListTile) show on
       // top of the card color instead of hiding behind it.
@@ -378,7 +496,7 @@ class _FadeSlideInState extends State<FadeSlideIn>
   }
 }
 
-/// Big brand-gradient button with a glow.
+/// Big full-width brand-gradient button.
 class GradientButton extends StatelessWidget {
   final String label;
   final IconData? icon;
@@ -396,7 +514,6 @@ class GradientButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final glow = gradient.colors.first;
     // While `loading` is true, onTap is null so the button can't be tapped
     // twice (e.g. submitting a report twice), and a spinner replaces the
     // label. If onPressed itself is null, the button is shown half-faded
@@ -412,13 +529,6 @@ class GradientButton extends StatelessWidget {
           decoration: BoxDecoration(
             gradient: gradient,
             borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: glow.withValues(alpha: 0.4),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
-              ),
-            ],
           ),
           alignment: Alignment.center,
           child: loading
@@ -531,20 +641,29 @@ class SectionHeader extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         children: [
-          Flexible(
-            child: Text(
-              title,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: c.textPrimary,
-                fontWeight: FontWeight.w800,
-                fontSize: 16.5,
-                letterSpacing: -0.2,
-              ),
+          // Title + badge take all the free space, which pushes the action
+          // ("See all") to the far right. (A Flexible title next to a
+          // Spacer split the space in half, leaving "See all" mid-row on
+          // wide screens.)
+          Expanded(
+            child: Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    title,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: c.textPrimary,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16.5,
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                ),
+                if (badge != null) ...[const SizedBox(width: 8), badge!],
+              ],
             ),
           ),
-          if (badge != null) ...[const SizedBox(width: 8), badge!],
-          const Spacer(),
           if (actionLabel != null)
             PressableScale(
               onTap: onAction,
@@ -821,42 +940,52 @@ class SubpageScaffold extends StatelessWidget {
       backgroundColor: Colors.transparent,
       body: GradientBackground(
         child: SafeArea(
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 8, 20, 4),
-                child: Row(
-                  children: [
-                    IconButton(
-                      tooltip: 'Back',
-                      icon: Icon(
-                        Icons.arrow_back_rounded,
-                        color: c.textPrimary,
-                      ),
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        title,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: c.textPrimary,
-                          fontSize: 19,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.3,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+          // On wide screens, keep forms and text at a readable width in
+          // the middle instead of stretching across the whole window.
+          child: Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: isWideScreen(context) ? 760 : double.infinity,
               ),
-              Expanded(child: body),
-              ?bottom,
-            ],
+              child: _body(c, context),
+            ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _body(AppColors c, BuildContext context) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(8, 8, 20, 4),
+          child: Row(
+            children: [
+              IconButton(
+                tooltip: 'Back',
+                icon: Icon(Icons.arrow_back_rounded, color: c.textPrimary),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  title,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: c.textPrimary,
+                    fontSize: 19,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(child: body),
+        ?bottom,
+      ],
     );
   }
 }
@@ -895,10 +1024,19 @@ Route<T> slideRoute<T>(Widget page) {
 }
 
 /// Opens a rounded bottom sheet with a drag handle.
+///
+/// On tablets and desktops a bottom sheet looks out of place, so the same
+/// content opens as a centered popup instead (at most [maxWidth] wide),
+/// with a close button. The `builder` doesn't need to know which one:
+/// `Navigator.of(sheet).pop()` closes either.
 Future<T?> showAppSheet<T>(
   BuildContext context, {
   required Widget Function(BuildContext) builder,
+  double maxWidth = 560,
 }) {
+  if (isWideScreen(context)) {
+    return _showAppDialog<T>(context, builder: builder, maxWidth: maxWidth);
+  }
   return showModalBottomSheet<T>(
     context: context,
     backgroundColor: Colors.transparent,
@@ -952,6 +1090,80 @@ Future<T?> showAppSheet<T>(
               ),
             ),
           ),
+        ),
+      );
+    },
+  );
+}
+
+/// The wide-screen version of [showAppSheet]: a centered card over a dark
+/// backdrop. Clicking the backdrop or pressing Esc closes it too.
+Future<T?> _showAppDialog<T>(
+  BuildContext context, {
+  required Widget Function(BuildContext) builder,
+  required double maxWidth,
+}) {
+  return showGeneralDialog<T>(
+    context: context,
+    barrierDismissible: true,
+    barrierLabel: 'Close',
+    barrierColor: Colors.black.withValues(alpha: 0.55),
+    transitionDuration: const Duration(milliseconds: 220),
+    pageBuilder: (dialogContext, _, _) {
+      final c = AppColors(dialogContext);
+      final height = MediaQuery.sizeOf(dialogContext).height;
+      return SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: maxWidth,
+                maxHeight: height * 0.9,
+              ),
+              child: Material(
+                color: c.surface,
+                borderRadius: BorderRadius.circular(24),
+                clipBehavior: Clip.antiAlias,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: IconButton(
+                          tooltip: 'Close',
+                          icon: Icon(
+                            Icons.close_rounded,
+                            color: c.textSecondary,
+                          ),
+                          onPressed: () => Navigator.of(dialogContext).pop(),
+                        ),
+                      ),
+                    ),
+                    Flexible(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(28, 0, 28, 28),
+                        child: builder(dialogContext),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    },
+    transitionBuilder: (_, anim, _, child) {
+      final curved = CurvedAnimation(parent: anim, curve: Curves.easeOutCubic);
+      return FadeTransition(
+        opacity: curved,
+        child: ScaleTransition(
+          scale: Tween(begin: 0.96, end: 1.0).animate(curved),
+          child: child,
         ),
       );
     },
@@ -1296,6 +1508,50 @@ class _SwipeDownToCloseState extends State<_SwipeDownToClose>
       child: Transform.translate(
         offset: Offset(0, _offset),
         child: widget.child,
+      ),
+    );
+  }
+}
+
+/// Barangay picker used by the rescue, missing person and report forms.
+class BarangayDropdown extends StatelessWidget {
+  final String value;
+  final ValueChanged<String> onChanged;
+  const BarangayDropdown({
+    required this.value,
+    required this.onChanged,
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = AppColors(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: c.surfaceAlt,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: value,
+          isExpanded: true,
+          dropdownColor: c.surface,
+          borderRadius: BorderRadius.circular(16),
+          menuMaxHeight: 320,
+          icon: Icon(Icons.expand_more_rounded, color: c.textSecondary),
+          style: TextStyle(
+            color: c.textPrimary,
+            fontFamily: kFontFamily,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+          items: [
+            for (final b in kBarangays)
+              DropdownMenuItem(value: b, child: Text('Brgy. $b')),
+          ],
+          onChanged: (v) => onChanged(v!),
+        ),
       ),
     );
   }

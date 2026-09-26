@@ -4,6 +4,10 @@ import '../data/demo_data.dart';
 import '../services/weather.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/flood_depth.dart';
+import '../widgets/responsive.dart';
+import '../widgets/user_profile.dart';
+import '../widgets/vote_bar.dart';
 import '../widgets/skeleton.dart';
 import 'evacuation_centers_screen.dart';
 import 'home_shell.dart';
@@ -11,7 +15,7 @@ import 'deferred_screens.dart';
 
 /// ============================================================
 /// HOME TAB — live Mabalacat weather, flood outlook, forecast,
-/// quick actions, river levels, evacuation centers, safety tips
+/// quick actions, flood report feed, evacuation centers, safety tips
 /// ============================================================
 class HomeTab extends StatefulWidget {
   const HomeTab({super.key});
@@ -41,14 +45,18 @@ class _HomeTabState extends State<HomeTab> {
   @override
   Widget build(BuildContext context) {
     final c = AppColors(context);
+    // Two columns only on desktops; tablets keep the phone order (the
+    // flood outlook right under the weather).
+    final wide = screenSizeOf(context) == ScreenSize.desktop;
+    final gap = wide ? 24.0 : 26.0;
     return RefreshIndicator(
       onRefresh: _refresh,
       color: c.accent,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
+        padding: pagePadding(context),
         children: [
-          FadeSlideIn(child: _greeting(c)),
-          const SizedBox(height: 18),
+          FadeSlideIn(child: _banner(c, wide)),
+          SizedBox(height: wide ? 24 : 18),
           // Shows the weather once the download finishes. `snap` (the
           // "snapshot") says how the download is going:
           //   not done yet -> gray placeholder (_WeatherSkeleton)
@@ -58,29 +66,62 @@ class _HomeTabState extends State<HomeTab> {
           FutureBuilder<MabalacatWeather>(
             future: _weather,
             builder: (context, snap) {
-              if (snap.connectionState != ConnectionState.done) {
-                return const _WeatherSkeleton();
+              final w =
+                  snap.connectionState == ConnectionState.done && !snap.hasError
+                  ? snap.data!
+                  : null;
+              final Widget weatherTop = w != null
+                  ? FadeSlideIn(child: _WeatherSection(w, _WeatherPart.hero))
+                  : snap.connectionState != ConnectionState.done
+                  ? const _WeatherSkeleton()
+                  : _weatherError(c);
+              Widget part(_WeatherPart p, int delayMs) => FadeSlideIn(
+                delay: Duration(milliseconds: delayMs),
+                child: _WeatherSection(w!, p),
+              );
+              final actions = FadeSlideIn(
+                delay: const Duration(milliseconds: 250),
+                child: _quickActions(context, c, wide),
+              );
+              if (!wide) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  spacing: gap,
+                  children: [
+                    weatherTop,
+                    if (w != null) ...[
+                      part(_WeatherPart.outlook, 90),
+                      part(_WeatherPart.forecast, 160),
+                    ],
+                    actions,
+                  ],
+                );
               }
-              if (snap.hasError) return _weatherError(c);
-              return _WeatherSection(weather: snap.data!);
+              // Desktop: weather and the forecast on the left; the flood
+              // outlook and shortcuts on the right.
+              return TwoColumns(
+                leftFlex: 8,
+                rightFlex: 4,
+                spacing: gap,
+                left: [
+                  weatherTop,
+                  if (w != null) part(_WeatherPart.forecast, 160),
+                ],
+                right: [if (w != null) part(_WeatherPart.outlook, 90), actions],
+              );
             },
           ),
-          const SizedBox(height: 28),
-          FadeSlideIn(
-            delay: const Duration(milliseconds: 250),
-            child: _quickActions(context, c),
+          SizedBox(height: gap + 2),
+          const FadeSlideIn(
+            delay: Duration(milliseconds: 360),
+            child: _ReportFeed(),
           ),
-          const SizedBox(height: 28),
-          FadeSlideIn(
-            delay: const Duration(milliseconds: 330),
-            child: const _RiverLevels(),
-          ),
-          const SizedBox(height: 28),
+          SizedBox(height: gap + 2),
           FadeSlideIn(
             delay: const Duration(milliseconds: 400),
-            child: _evacuationCenters(context, c),
+            child: _evacuationCenters(context, c, wide),
           ),
-          const SizedBox(height: 28),
+          SizedBox(height: gap + 2),
           FadeSlideIn(
             delay: const Duration(milliseconds: 460),
             child: const _SafetyTips(),
@@ -88,7 +129,7 @@ class _HomeTabState extends State<HomeTab> {
           const SizedBox(height: 24),
           Center(
             child: Text(
-              'Weather by Open-Meteo · Sections marked SAMPLE use demo data',
+              'Weather by Open-Meteo · Sections marked SAMPLE use demo data · Unofficial demo',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: c.textSecondary.withValues(alpha: 0.8),
@@ -101,60 +142,120 @@ class _HomeTabState extends State<HomeTab> {
     );
   }
 
-  Widget _greeting(AppColors c) {
+  // The photo banner at the top: a real local river, the greeting in
+  // English and in Kapampangan (the local language), and the city.
+  Widget _banner(AppColors c, bool wide) {
     final now = DateTime.now();
-    final greeting = now.hour < 12
-        ? 'Good morning'
+    final (greeting, kapampangan) = now.hour < 12
+        ? ('Good morning', 'Mayap a abak')
         : now.hour < 18
-        ? 'Good afternoon'
-        : 'Good evening';
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          formatDate(now).toUpperCase(),
-          style: TextStyle(
-            color: c.textSecondary,
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 1.2,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          '$greeting!',
-          style: TextStyle(
-            color: c.textPrimary,
-            fontSize: 28,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.8,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.fromLTRB(8, 5, 12, 5),
-          decoration: BoxDecoration(
-            color: c.surface.withValues(alpha: 0.7),
-            borderRadius: BorderRadius.circular(30),
-            border: Border.all(color: c.border),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.location_on_rounded, size: 15, color: c.accent),
-              const SizedBox(width: 4),
-              Text(
-                'Mabalacat City, Pampanga',
-                style: TextStyle(
-                  color: c.textPrimary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
+        ? ('Good afternoon', 'Mayap a gatpanapun')
+        : ('Good evening', 'Mayap a bengi');
+    return LocalPhotoView(
+      kPhotoSacobia,
+      height: wide ? 250 : 196,
+      radius: wide ? 24 : 22,
+      showPlace: wide,
+      overlay: Stack(
+        children: [
+          // Darkens the bottom-left corner so the white text is readable
+          // on any part of the photo.
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topRight,
+                end: Alignment.bottomLeft,
+                colors: [Color(0x10060911), Color(0xCC060911)],
               ),
-            ],
+            ),
+            child: SizedBox.expand(),
           ),
-        ),
-      ],
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: WaterLines(
+              color: Colors.white.withValues(alpha: 0.22),
+              height: 70,
+              count: 4,
+            ),
+          ),
+          Positioned(
+            left: wide ? 28 : 18,
+            right: wide ? 28 : 18,
+            bottom: wide ? 26 : 30,
+            top: wide ? 22 : 16,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.fromLTRB(8, 5, 12, 5),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.location_on_rounded,
+                        size: 15,
+                        color: Colors.white,
+                      ),
+                      SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          'Mabalacat City, Pampanga',
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  formatDate(now).toUpperCase(),
+                  style: const TextStyle(
+                    color: Color(0xCCFFFFFF),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '$greeting!',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: wide ? 36 : 28,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.8,
+                    height: 1.1,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Tooltip(
+                  message: 'Kapampangan for "$greeting"',
+                  child: Text(
+                    kapampangan,
+                    style: TextStyle(
+                      color: const Color(0xE6FFFFFF),
+                      fontSize: wide ? 17 : 15,
+                      fontStyle: FontStyle.italic,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -191,7 +292,7 @@ class _HomeTabState extends State<HomeTab> {
     );
   }
 
-  Widget _quickActions(BuildContext context, AppColors c) {
+  Widget _quickActions(BuildContext context, AppColors c, bool wide) {
     final actions = [
       (
         Icons.map_rounded,
@@ -220,63 +321,90 @@ class _HomeTabState extends State<HomeTab> {
         () => HomeShell.of(context)?.switchTab(3),
       ),
     ];
+    // Phones: four small tiles in a row. Desktop (the right column): a
+    // 2 x 2 grid of wider tiles, with the label beside the icon.
+    // Tinted, not gradient-filled, to keep the page calm; color only
+    // marks what each action is about.
+    Widget tile((IconData, String, Color, VoidCallback) a) {
+      final (icon, label, color, onTap) = a;
+      final badge = Container(
+        width: wide ? 40 : 56,
+        height: wide ? 40 : 56,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: c.isDark ? 0.16 : 0.12),
+          borderRadius: BorderRadius.circular(wide ? 12 : 18),
+        ),
+        child: Icon(icon, color: color, size: wide ? 21 : 26),
+      );
+      if (!wide) {
+        return PressableScale(
+          onTap: onTap,
+          child: Column(
+            children: [
+              badge,
+              const SizedBox(height: 8),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: c.textPrimary,
+                  fontSize: 11.5,
+                  height: 1.25,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+      return AppCard(
+        onTap: onTap,
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            badge,
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                label.replaceAll('\n', ' '),
+                style: TextStyle(
+                  color: c.textPrimary,
+                  fontSize: 13,
+                  height: 1.25,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SectionHeader('Quick actions'),
-        Row(
-          children: [
-            for (final (icon, label, color, onTap) in actions)
-              Expanded(
-                child: PressableScale(
-                  onTap: onTap,
-                  child: Column(
-                    children: [
-                      Container(
-                        width: 60,
-                        height: 60,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(20),
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              color,
-                              Color.lerp(color, Colors.white, 0.3)!,
-                            ],
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: color.withValues(alpha: 0.35),
-                              blurRadius: 14,
-                              offset: const Offset(0, 6),
-                            ),
-                          ],
-                        ),
-                        child: Icon(icon, color: Colors.white, size: 27),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        label,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: c.textPrimary,
-                          fontSize: 11.5,
-                          height: 1.25,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
+        if (wide)
+          Column(
+            spacing: 10,
+            children: [
+              for (var row = 0; row < 2; row++)
+                Row(
+                  spacing: 10,
+                  children: [
+                    Expanded(child: tile(actions[row * 2])),
+                    Expanded(child: tile(actions[row * 2 + 1])),
+                  ],
                 ),
-              ),
-          ],
-        ),
+            ],
+          )
+        else
+          Row(children: [for (final a in actions) Expanded(child: tile(a))]),
       ],
     );
   }
 
-  Widget _evacuationCenters(BuildContext context, AppColors c) {
+  Widget _evacuationCenters(BuildContext context, AppColors c, bool wide) {
     final centers = [...kEvacCenters]
       ..sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
     return Column(
@@ -290,19 +418,33 @@ class _HomeTabState extends State<HomeTab> {
               Navigator.of(context)
                   .push(slideRoute(const EvacuationCentersScreen())),
         ),
-        SizedBox(
-          height: 206,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            clipBehavior: Clip.none,
-            itemCount: centers.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 12),
-            itemBuilder: (context, i) => SizedBox(
-              width: 220,
-              child: EvacCenterCard(center: centers[i], compact: true),
+        // Desktop: all four side by side, equally tall (IntrinsicHeight +
+        // stretch). Phones: a row you swipe sideways.
+        if (wide)
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              spacing: 16,
+              children: [
+                for (final e in centers)
+                  Expanded(child: EvacCenterCard(center: e, compact: true)),
+              ],
+            ),
+          )
+        else
+          SizedBox(
+            height: 206,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              clipBehavior: Clip.none,
+              itemCount: centers.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 12),
+              itemBuilder: (context, i) => SizedBox(
+                width: 220,
+                child: EvacCenterCard(center: centers[i], compact: true),
+              ),
             ),
           ),
-        ),
       ],
     );
   }
@@ -311,35 +453,24 @@ class _HomeTabState extends State<HomeTab> {
 /// ------------------------------------------------------------
 /// Weather: hero card, flood outlook, hourly strip, next days
 /// ------------------------------------------------------------
+/// The four weather pieces. They're separate so the desktop layout can put
+/// them in different columns.
+enum _WeatherPart { hero, outlook, forecast }
+
 class _WeatherSection extends StatelessWidget {
   final MabalacatWeather weather;
-  const _WeatherSection({required this.weather});
+  final _WeatherPart part;
+  const _WeatherSection(this.weather, this.part);
 
   @override
   Widget build(BuildContext context) {
     final c = AppColors(context);
     final w = weather;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        FadeSlideIn(child: _hero(w)),
-        const SizedBox(height: 14),
-        FadeSlideIn(
-          delay: const Duration(milliseconds: 90),
-          child: _outlook(c, w.floodOutlook),
-        ),
-        const SizedBox(height: 26),
-        FadeSlideIn(
-          delay: const Duration(milliseconds: 160),
-          child: _hourly(c, w),
-        ),
-        const SizedBox(height: 26),
-        FadeSlideIn(
-          delay: const Duration(milliseconds: 220),
-          child: _daily(c, w),
-        ),
-      ],
-    );
+    return switch (part) {
+      _WeatherPart.hero => _hero(w),
+      _WeatherPart.outlook => _outlook(c, w.floodOutlook),
+      _WeatherPart.forecast => _ForecastCard(weather: w),
+    };
   }
 
   Widget _hero(MabalacatWeather w) {
@@ -354,28 +485,11 @@ class _WeatherSection extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: colors.first.withValues(alpha: 0.45),
-            blurRadius: 30,
-            offset: const Offset(0, 12),
-          ),
-        ],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(28),
         child: Stack(
           children: [
-            // Big faded icon in the corner for depth
-            Positioned(
-              right: -30,
-              top: -30,
-              child: Icon(
-                icon,
-                size: 190,
-                color: Colors.white.withValues(alpha: 0.08),
-              ),
-            ),
             const Positioned(
               left: 0,
               right: 0,
@@ -645,219 +759,241 @@ class _WeatherSection extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _hourly(AppColors c, MabalacatWeather w) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SectionHeader('Next 12 hours'),
-        SizedBox(
-          height: 128,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            clipBehavior: Clip.none,
-            itemCount: w.hourly.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 10),
-            itemBuilder: (context, i) {
-              final h = w.hourly[i];
-              final now = i == 0;
-              final (_, icon) = weatherInfo(h.weatherCode, isDay: h.isDay);
-              final fg = now ? Colors.white : c.textPrimary;
-              final sub = now ? const Color(0xCCFFFFFF) : c.textSecondary;
-              return Container(
-                width: 66,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                decoration: BoxDecoration(
-                  gradient: now ? kBrandGradient : null,
-                  color: now ? null : c.surface,
-                  borderRadius: BorderRadius.circular(22),
-                  border: Border.all(
-                    color: now ? Colors.transparent : c.border,
+/// The forecast: the next 12 hours OR the next days, switched with a
+/// small toggle. Showing one at a time keeps Home calm; no boxes around
+/// each hour, no colored bars, just the numbers that matter.
+class _ForecastCard extends StatefulWidget {
+  final MabalacatWeather weather;
+  const _ForecastCard({required this.weather});
+
+  @override
+  State<_ForecastCard> createState() => _ForecastCardState();
+}
+
+class _ForecastCardState extends State<_ForecastCard> {
+  bool _days = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = AppColors(context);
+    return AppCard(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Forecast',
+                  style: TextStyle(
+                    color: c.textPrimary,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16.5,
                   ),
-                  boxShadow: now
-                      ? [
-                          BoxShadow(
-                            color: kSkyBlue.withValues(alpha: 0.4),
-                            blurRadius: 14,
-                            offset: const Offset(0, 6),
-                          ),
-                        ]
-                      : null,
                 ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      now ? 'Now' : formatHour(h.time),
-                      style: TextStyle(
-                        color: sub,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    Icon(
-                      icon,
-                      color: now ? Colors.white : kLogoYellow,
-                      size: 24,
-                    ),
-                    Text(
-                      '${h.temperature.round()}°',
-                      style: TextStyle(
-                        color: fg,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.water_drop_rounded,
-                          size: 10,
-                          color: now ? Colors.white : kLogoCyan,
-                        ),
-                        const SizedBox(width: 2),
-                        Text(
-                          '${h.rainChance}%',
-                          style: TextStyle(
-                            color: sub,
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              );
-            },
+              ),
+              _toggle(c),
+            ],
           ),
-        ),
-      ],
+          const SizedBox(height: 16),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: _days ? _daily(c) : _hourly(c),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _daily(AppColors c, MabalacatWeather w) {
-    // lo = the coldest low of all 5 days, hi = the hottest high.
-    // `.reduce` walks the list keeping the smaller (or bigger) of each
-    // pair, so what's left at the end is the minimum (or maximum).
-    // span = how many degrees the bars below cover. clamp(1, ...) stops a
-    // divide-by-zero if every day had the exact same temperature.
-    final lo = w.daily.map((d) => d.min).reduce((a, b) => a < b ? a : b);
-    final hi = w.daily.map((d) => d.max).reduce((a, b) => a > b ? a : b);
-    final span = (hi - lo).clamp(1, 100);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SectionHeader('5-day forecast'),
-        AppCard(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          child: Column(
+  // Two-option switch: "12 hours" | "5 days".
+  Widget _toggle(AppColors c) {
+    Widget option(String label, bool days) {
+      final on = _days == days;
+      return Semantics(
+        button: true,
+        selected: on,
+        child: GestureDetector(
+          onTap: () => setState(() => _days = days),
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: on ? c.surface : Colors.transparent,
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: on && !c.isDark
+                    ? [BoxShadow(color: c.shadow, blurRadius: 4)]
+                    : null,
+              ),
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: on ? c.textPrimary : c.textSecondary,
+                  fontSize: 12.5,
+                  fontWeight: on ? FontWeight.w700 : FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: c.surfaceAlt,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [option('12 hours', false), option('5 days', true)],
+      ),
+    );
+  }
+
+  Widget _hourly(AppColors c) {
+    final hours = widget.weather.hourly;
+    final rainy = c.isDark ? kSkyBlueLight : kSkyBlue;
+    Widget hour(int i) {
+      final h = hours[i];
+      final now = i == 0;
+      final (_, icon) = weatherInfo(h.weatherCode, isDay: h.isDay);
+      return Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: now ? c.surfaceAlt : null,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          children: [
+            Text(
+              now ? 'Now' : formatHour(h.time),
+              style: TextStyle(
+                color: now ? c.textPrimary : c.textSecondary,
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Icon(icon, size: 22, color: c.textSecondary),
+            const SizedBox(height: 8),
+            Text(
+              '${h.temperature.round()}°',
+              style: TextStyle(
+                color: c.textPrimary,
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 3),
+            // Rain chance: only stands out (blue) when it's likely.
+            Text(
+              '${h.rainChance}%',
+              style: TextStyle(
+                color: h.rainChance >= 50 ? rainy : c.textSecondary,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return LayoutBuilder(
+      key: const ValueKey('hours'),
+      builder: (context, box) {
+        // Wide enough for all hours side by side: no scrolling needed.
+        if (box.maxWidth / hours.length >= 50) {
+          return Row(
             children: [
-              for (var i = 0; i < w.daily.length; i++) ...[
-                if (i > 0) Divider(height: 1, color: c.border),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 11),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 50,
-                        child: Text(
-                          i == 0 ? 'Today' : formatWeekday(w.daily[i].date),
-                          style: TextStyle(
-                            color: c.textPrimary,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                      Icon(
-                        weatherInfo(w.daily[i].weatherCode).$2,
-                        color: kLogoYellow,
-                        size: 20,
-                      ),
-                      SizedBox(
-                        width: 48,
-                        child: Text(
-                          '${w.daily[i].rainChance}%',
-                          textAlign: TextAlign.right,
-                          style: const TextStyle(
-                            color: kLogoCyan,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Text(
-                        '${w.daily[i].min.round()}°',
-                        style: TextStyle(
-                          color: c.textSecondary,
-                          fontSize: 12.5,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      // Temperature range bar, scaled across all 5 days.
-                      // The full gray track = lo..hi degrees. The colored
-                      // part starts at this day's min and ends at its max.
-                      // Example: lo 24°, hi 34° (span 10), track 100 px,
-                      // day 26°-32°: left = (26-24)/10*100 = 20 px,
-                      // width = (32-26)/10*100 = 60 px.
-                      // Width is at least 6 px so it never disappears.
-                      Expanded(
-                        child: LayoutBuilder(
-                          builder: (context, box) {
-                            final d = w.daily[i];
-                            final left = (d.min - lo) / span * box.maxWidth;
-                            final width =
-                                ((d.max - d.min) / span * box.maxWidth).clamp(
-                                  6.0,
-                                  box.maxWidth,
-                                );
-                            return Container(
-                              height: 6,
-                              decoration: BoxDecoration(
-                                color: c.surfaceAlt,
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Stack(
-                                children: [
-                                  Positioned(
-                                    left: left,
-                                    width: width,
-                                    top: 0,
-                                    bottom: 0,
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(6),
-                                        gradient: const LinearGradient(
-                                          colors: [kLogoCyan, kCaution],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${w.daily[i].max.round()}°',
-                        style: TextStyle(
-                          color: c.textPrimary,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 12.5,
-                        ),
-                      ),
-                    ],
+              for (var i = 0; i < hours.length; i++) Expanded(child: hour(i)),
+            ],
+          );
+        }
+        return SizedBox(
+          height: 118,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: hours.length,
+            itemExtent: 56,
+            itemBuilder: (context, i) => hour(i),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _daily(AppColors c) {
+    final days = widget.weather.daily;
+    final rainy = c.isDark ? kSkyBlueLight : kSkyBlue;
+    return Column(
+      key: const ValueKey('days'),
+      children: [
+        for (var i = 0; i < days.length; i++) ...[
+          if (i > 0) Divider(height: 1, color: c.border),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 9),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 56,
+                  child: Text(
+                    i == 0 ? 'Today' : formatWeekday(days[i].date),
+                    style: TextStyle(
+                      color: c.textPrimary,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13.5,
+                    ),
+                  ),
+                ),
+                Icon(
+                  weatherInfo(days[i].weatherCode).$2,
+                  size: 20,
+                  color: c.textSecondary,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    weatherInfo(days[i].weatherCode).$1,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: c.textSecondary, fontSize: 13),
+                  ),
+                ),
+                SizedBox(
+                  width: 44,
+                  child: Text(
+                    '${days[i].rainChance}%',
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                      color: days[i].rainChance >= 50 ? rainy : c.textSecondary,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  width: 84,
+                  child: Text(
+                    '${days[i].min.round()}° / ${days[i].max.round()}°',
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                      color: c.textPrimary,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13.5,
+                    ),
                   ),
                 ),
               ],
-            ],
+            ),
           ),
-        ),
+        ],
       ],
     );
   }
@@ -898,247 +1034,315 @@ class _WeatherSkeleton extends StatelessWidget {
 }
 
 /// ------------------------------------------------------------
-/// River water levels (sample data)
+/// Safety tips: numbered steps in one card
 /// ------------------------------------------------------------
-class _RiverLevels extends StatelessWidget {
-  const _RiverLevels();
+class _SafetyTips extends StatelessWidget {
+  const _SafetyTips();
 
   @override
   Widget build(BuildContext context) {
     final c = AppColors(context);
+    final desktop = screenSizeOf(context) == ScreenSize.desktop;
+    // Desktop: four steps side by side, split by thin lines.
+    // Phones and tablets: the same steps, one under the other.
+    final steps = [
+      for (var i = 0; i < kSafetyTips.length; i++)
+        _step(c, i + 1, kSafetyTips[i], desktop),
+    ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionHeader('River water levels', badge: SampleBadge()),
+        const SectionHeader('When the water rises'),
         AppCard(
-          child: Column(
-            children: [
-              for (var i = 0; i < kRivers.length; i++) ...[
-                if (i > 0)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    child: Divider(height: 1, color: c.border),
-                  ),
-                _river(c, kRivers[i]),
-              ],
-            ],
+          padding: EdgeInsets.symmetric(
+            horizontal: desktop ? 8 : 18,
+            vertical: desktop ? 22 : 6,
           ),
+          child: desktop
+              ? IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (var i = 0; i < steps.length; i++) ...[
+                        if (i > 0) VerticalDivider(width: 1, color: c.border),
+                        Expanded(child: steps[i]),
+                      ],
+                    ],
+                  ),
+                )
+              : Column(
+                  children: [
+                    for (var i = 0; i < steps.length; i++) ...[
+                      if (i > 0) Divider(height: 1, color: c.border),
+                      steps[i],
+                    ],
+                  ],
+                ),
         ),
       ],
     );
   }
 
-  Widget _river(AppColors c, River r) {
-    final color = r.risk.color;
-    final rising = r.change > 0;
-    return Column(
+  Widget _step(AppColors c, int n, SafetyTip t, bool desktop) {
+    final number = Text(
+      '$n',
+      style: TextStyle(
+        color: c.accent.withValues(alpha: 0.85),
+        fontSize: desktop ? 26 : 20,
+        fontWeight: FontWeight.w800,
+        height: 1,
+      ),
+    );
+    final text = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            IconBadge(Icons.water_rounded, color, size: 38, squircle: true),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    r.name,
-                    style: TextStyle(
-                      color: c.textPrimary,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13.5,
-                    ),
-                  ),
-                  Text(
-                    r.location,
-                    style: TextStyle(color: c.textSecondary, fontSize: 11.5),
-                  ),
-                ],
-              ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text.rich(
-                  TextSpan(
+        Text(
+          t.title,
+          style: TextStyle(
+            color: c.textPrimary,
+            fontWeight: FontWeight.w700,
+            fontSize: 14.5,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          t.body,
+          style: TextStyle(color: c.textSecondary, fontSize: 13, height: 1.45),
+        ),
+      ],
+    );
+    if (desktop) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [number, const SizedBox(height: 12), text],
+        ),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(width: 30, child: number),
+          Expanded(child: text),
+        ],
+      ),
+    );
+  }
+}
+
+/// ------------------------------------------------------------
+/// Latest flood reports: the map's pins as a feed, newest first
+/// ------------------------------------------------------------
+/// Keeps Home alive: each post shows who reported it, the photo, the
+/// depth, the same thumbs up/down as the pin, and "View on map".
+class _ReportFeed extends StatefulWidget {
+  const _ReportFeed();
+
+  @override
+  State<_ReportFeed> createState() => _ReportFeedState();
+}
+
+class _ReportFeedState extends State<_ReportFeed> {
+  // Phones start with a few posts; "Show all" reveals the rest.
+  bool _all = false;
+  static const _phoneCount = 3;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = AppColors(context);
+    final desktop = screenSizeOf(context) == ScreenSize.desktop;
+    final posts = activeFloodZones.toList()
+      ..sort((a, b) => a.photoAge.compareTo(b.photoAge));
+    final shown = desktop || _all ? posts : posts.take(_phoneCount).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SectionHeader(
+          'Latest flood reports',
+          badge: const SampleBadge(),
+          actionLabel: 'Open map',
+          onAction: () => HomeShell.of(context)?.switchTab(1),
+        ),
+        if (desktop)
+          // Three posts per row, each row as tall as its tallest post.
+          Column(
+            spacing: 16,
+            children: [
+              for (var i = 0; i < shown.length; i += 3)
+                IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    spacing: 16,
                     children: [
-                      TextSpan(
-                        text: '${r.level}',
-                        style: TextStyle(
-                          color: c.textPrimary,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 17,
+                      for (var j = i; j < i + 3; j++)
+                        Expanded(
+                          child: j < shown.length
+                              ? _post(context, c, shown[j], true)
+                              : const SizedBox.shrink(),
                         ),
-                      ),
-                      TextSpan(
-                        text: ' / ${r.critical} m',
-                        style: TextStyle(color: c.textSecondary, fontSize: 11),
-                      ),
                     ],
                   ),
                 ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      rising
-                          ? Icons.trending_up_rounded
-                          : Icons.trending_down_rounded,
-                      size: 14,
-                      color: rising ? kDanger : kSafe,
+            ],
+          )
+        else ...[
+          for (final z in shown) ...[
+            _post(context, c, z, false),
+            const SizedBox(height: 14),
+          ],
+          if (posts.length > _phoneCount)
+            TextButton(
+              onPressed: () => setState(() => _all = !_all),
+              child: Text(
+                _all ? 'Show fewer' : 'Show all ${posts.length} reports',
+                style: TextStyle(color: c.accent, fontWeight: FontWeight.w700),
+              ),
+            ),
+        ],
+      ],
+    );
+  }
+
+  Widget _post(BuildContext context, AppColors c, FloodZone z, bool desktop) {
+    final level = FloodLevel.of(z.depthCm);
+    return AppCard(
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+            child: PostedBy(z.uploader, trailing: timeAgo(z.photoAge)),
+          ),
+          AspectRatio(
+            aspectRatio: 16 / 10,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                const ColoredBox(color: kOceanBlue),
+                Image.asset(
+                  z.photo,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                ),
+                Positioned(
+                  left: 8,
+                  bottom: 8,
+                  right: 8,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.45),
+                        borderRadius: BorderRadius.circular(5),
+                      ),
+                      child: const Text(
+                        kFloodPhotoCredit,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
-                    const SizedBox(width: 3),
-                    Text(
-                      '${rising ? '+' : ''}${r.change} m/hr',
-                      style: TextStyle(
-                        color: rising ? kDanger : kSafe,
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: z.risk.color,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 7),
+                    Expanded(
+                      child: Text(
+                        'Brgy. ${z.barangay} · ${formatCm(z.depthCm)}, ${level.label.toLowerCase()}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: c.textPrimary,
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                   ],
                 ),
+                const SizedBox(height: 6),
+                Text(
+                  z.note,
+                  style: TextStyle(
+                    color: c.textSecondary,
+                    fontSize: 13.5,
+                    height: 1.45,
+                  ),
+                ),
               ],
             ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              // The river bar grows from empty to r.ratio (level divided
-              // by critical level, see River in demo_data.dart).
-              child: TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0, end: r.ratio),
-                duration: const Duration(milliseconds: 1200),
-                curve: Curves.easeOutCubic,
-                builder: (context, v, _) => ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: LinearProgressIndicator(
-                    value: v,
-                    minHeight: 8,
-                    backgroundColor: c.surfaceAlt,
-                    valueColor: AlwaysStoppedAnimation(color),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            StatusPill(r.risk.label, color),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-/// ------------------------------------------------------------
-/// Safety tips carousel
-/// ------------------------------------------------------------
-class _SafetyTips extends StatefulWidget {
-  const _SafetyTips();
-
-  @override
-  State<_SafetyTips> createState() => _SafetyTipsState();
-}
-
-class _SafetyTipsState extends State<_SafetyTips> {
-  // viewportFraction: 0.9 = each tip card takes 90% of the width, so the
-  // edge of the next card peeks in and people can tell they can swipe.
-  final _page = PageController(viewportFraction: 0.9);
-  // Which card is showing; used to highlight the matching dot below.
-  int _current = 0;
-
-  @override
-  void dispose() {
-    _page.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final c = AppColors(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SectionHeader('Flood safety tips'),
-        SizedBox(
-          height: 128,
-          child: PageView.builder(
-            controller: _page,
-            padEnds: false,
-            itemCount: kSafetyTips.length,
-            onPageChanged: (i) => setState(() => _current = i),
-            itemBuilder: (context, i) {
-              final t = kSafetyTips[i];
-              return Padding(
-                padding: const EdgeInsets.only(right: 12),
-                child: AppCard(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      t.color.withValues(alpha: c.isDark ? 0.28 : 0.16),
-                      c.surface,
-                    ],
-                  ),
-                  borderColor: t.color.withValues(alpha: 0.3),
-                  child: Row(
-                    children: [
-                      IconBadge(t.icon, t.color, size: 52, squircle: true),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              t.title,
-                              style: TextStyle(
-                                color: c.textPrimary,
-                                fontWeight: FontWeight.w800,
-                                fontSize: 14.5,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              t.body,
-                              style: TextStyle(
-                                color: c.textSecondary,
-                                fontSize: 12,
-                                height: 1.4,
-                              ),
-                            ),
-                          ],
+          ),
+          // On desktop the rows are equally tall: this pushes the buttons
+          // to the bottom of every post.
+          if (desktop) const Spacer(),
+          Divider(height: 1, color: c.border),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 8, 6, 8),
+            child: Row(
+              children: [
+                VoteBar(zone: z, showQuestion: false),
+                const SizedBox(width: 8),
+                // Takes the rest of the row; on narrow posts the label
+                // shortens with "…" instead of overflowing.
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: () {
+                        HomeShell.of(context)?.switchTab(1);
+                        focusedZone.value = z;
+                      },
+                      icon: const Icon(Icons.map_outlined, size: 18),
+                      label: const Text(
+                        'View on map',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      style: TextButton.styleFrom(
+                        foregroundColor: c.isDark ? kSkyBlueLight : kSkyBlue,
+                        textStyle: const TextStyle(
+                          fontFamily: kFontFamily,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
-                    ],
+                    ),
                   ),
                 ),
-              );
-            },
+              ],
+            ),
           ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            for (var i = 0; i < kSafetyTips.length; i++)
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
-                margin: const EdgeInsets.symmetric(horizontal: 3),
-                width: i == _current ? 20 : 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: i == _current
-                      ? c.accent
-                      : c.textSecondary.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-              ),
-          ],
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
