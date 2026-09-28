@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -la ~/.claude/projects/-workspaces-AgosAlert/memory/; ls ~/.claude/)",
+      "Read(//home/vscode/.claude/**)",
+      "Bash(flutter doctor *)",
+      "Bash(git restore *)",
+      "Bash(git pull *)",
+      "Bash(flutter run *)",
+      "Bash(break)",
+      "Bash(python3 -c \"import PIL; print\\('pil ok'\\)\")",
+      "Bash(which node *)",
+      "Read(//home/vscode/.pub-cache/hosted/pub.dev/**)",
+      "Bash(flutter analyze *)",
+      "Bash(flutter test *)",
+      "WebSearch",
+      "Bash(curl -s -D - \"https://api.open-meteo.com/v1/forecast?latitude=15.2236&longitude=120.5714&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m&timezone=Asia%2FManila\" -H \"Origin: https://adriantulabut5747.github.io\")",
+      "Bash(flutter pub *)",
+      "Bash(git add *)",
+      "Bash(git commit -q -m 'Add new logos, live Mabalacat weather card, and fix login background *)",
+      "Bash(git switch *)",
+      "Bash(mkdir -p /workspaces/AgosAlert/.vscode)"
+    ],
+    "additionalDirectories": [
+      "/workspaces/AgosAlert"
+    ]
+  }
+}
