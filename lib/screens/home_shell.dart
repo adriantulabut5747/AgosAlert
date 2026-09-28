@@ -6,8 +6,9 @@ import '../data/demo_data.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/responsive.dart';
+import '../services/prefetch.dart';
+import 'account.dart';
 import 'home_tab.dart';
-import 'login_screen.dart';
 import 'deferred_screens.dart';
 
 /// Phones only: keeps the phone layout from stretching (wider screens get
@@ -18,7 +19,9 @@ const double kMaxContentWidth = 560;
 /// HOME SHELL — top bar + the five tabs + floating bottom nav
 /// ============================================================
 class HomeShell extends StatefulWidget {
-  const HomeShell({super.key});
+  /// Which tab opens first (same numbers as HomeShellState._index).
+  final int initialTab;
+  const HomeShell({this.initialTab = 0, super.key});
 
   /// Lets any tab switch tabs: `HomeShell.of(context)?.switchTab(1)`.
   /// It walks UP the widget tree from [context] until it finds the
@@ -34,12 +37,32 @@ class HomeShell extends StatefulWidget {
 class HomeShellState extends State<HomeShell> {
   // Which tab is showing right now: 0 Home, 1 Map, 2 Alerts,
   // 3 Assistance, 4 More (same order as _tabs and _items below).
-  int _index = 0;
+  late int _index = widget.initialTab;
 
   // Tabs are only built the first time they're opened (so, e.g., the map
   // doesn't download tiles until someone opens the Map tab). After that
   // they stay alive, so scroll position and filters are kept.
-  final Set<int> _opened = {0};
+  late final Set<int> _opened = {_index};
+
+  @override
+  void initState() {
+    super.initState();
+    // Right after the first frame, quietly start downloading the other
+    // tabs' code, the first map tiles, and the weather (web only), so
+    // switching tabs is instant. addPostFrameCallback = "after the first
+    // frame is drawn", so this never delays Home appearing.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) prefetchAppContent(dark: AppColors(context).isDark);
+    });
+  }
+
+  // Runs after initState, and again when the theme changes: loads the
+  // matching logo images early so the top bar never shows an empty logo.
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    BrandLogo.precache(context);
+  }
 
   void switchTab(int index) => setState(() {
     _index = index;
@@ -672,9 +695,7 @@ class _ProfileMenu extends StatelessWidget {
           MenuItemButton(
             style: itemStyle,
             leadingIcon: const Icon(Icons.login_rounded, size: 20),
-            onPressed: () => Navigator.of(
-              context,
-            ).pushAndRemoveUntil(slideRoute(const LoginScreen()), (_) => false),
+            onPressed: () => logIn(context),
             child: const Text('Log in'),
           )
         else

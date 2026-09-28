@@ -13,6 +13,7 @@ import 'package:agosalert/screens/report_incident_screen.dart';
 import 'package:agosalert/screens/settings_screen.dart';
 import 'package:agosalert/theme.dart';
 import 'package:agosalert/widgets/flood_depth.dart';
+import 'package:agosalert/widgets/skeleton.dart';
 
 /// Shows [page] on a phone-sized screen (390 x 844, like an iPhone).
 /// Pass [size] to try another screen, e.g. a desktop browser window.
@@ -31,13 +32,15 @@ Future<void> pumpPhone(
 }
 
 void main() {
-  testWidgets('App starts on the login screen', (WidgetTester tester) async {
+  // Logging in happens on the landing page, so the app opens on Home.
+  testWidgets('App starts on Home', (WidgetTester tester) async {
     await tester.pumpWidget(const AgosAlertApp());
-    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
 
-    expect(find.text('Login to your account'), findsOneWidget);
-    expect(find.text('Login'), findsOneWidget);
+    expect(find.byType(HomeShell), findsOneWidget);
+    expect(find.text('Quick actions'), findsOneWidget);
   });
+
 
   // Each tab and screen should build on a phone without layout errors
   // (a "RenderFlex overflowed" error makes the test fail).
@@ -288,4 +291,16 @@ void main() {
       await pumpPhone(tester, page);
     });
   }
+
+  // Keep this test LAST. After it, a deferred tab that a later test opens
+  // for the first time never finishes loading (a quirk of how the test
+  // runner handles deferred code, not an app bug: it was the More tab in
+  // "Switching tabs hides the previous tab").
+  // (Alerts, not Map: the Map tab starts real tile downloads.)
+  testWidgets('HomeShell can open on another tab', (tester) async {
+    await pumpPhone(tester, const HomeShell(initialTab: 2));
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.byType(ListPageSkeleton), findsNothing); // Alerts loaded
+    expect(find.text('Quick actions'), findsNothing); // Home never built
+  });
 }

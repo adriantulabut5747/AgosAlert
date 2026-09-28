@@ -1,10 +1,20 @@
 import 'package:flutter/material.dart';
 
-import 'screens/login_screen.dart';
+import 'screens/home_shell.dart';
+import 'services/session.dart';
 import 'theme.dart';
 
 // The app starts here. runApp() puts AgosAlertApp on the screen.
 void main() {
+  // Opened from the landing page's login popup? Read who logged in and
+  // which theme they picked from the web address (services/session.dart).
+  applyLaunchOptions();
+  // Opened /app/ directly on the published site: log in on the landing
+  // page first. runApp is skipped, so the app never flashes on screen.
+  if (shouldSendToLanding) {
+    goToLanding(openLogin: true);
+    return;
+  }
   runApp(const AgosAlertApp());
 }
 
@@ -27,7 +37,9 @@ class AgosAlertApp extends StatelessWidget {
         darkTheme: buildDarkTheme(),
         themeMode: mode,
         themeAnimationDuration: const Duration(milliseconds: 400),
-        home: const LoginScreen(),
+        // No login screen: the landing page already asked (see
+        // screens/account.dart). launchTab is usually Home.
+        home: HomeShell(initialTab: launchTab),
       ),
     );
   }

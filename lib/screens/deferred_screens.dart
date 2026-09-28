@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/demo_data.dart';
 import '../widgets/common.dart';
 import '../widgets/skeleton.dart';
-import 'login_screen.dart';
+import 'account.dart';
 // "deferred as" = compiled into a separate file that's only downloaded the
 // first time it's needed. The map package is big, so the Map tab and the
 // Report incident screen (which has a map preview and photo picker) stay

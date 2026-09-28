@@ -1,6 +1,11 @@
 # Dependencies
 node_modules/
 
+# Local preview copy of the app inside the landing page (the deploy
+# workflow builds its own)
+landing/app/
+_site/
+
 # Secrets — never commit these
 .env
 .env.*

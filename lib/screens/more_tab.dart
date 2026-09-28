@@ -6,7 +6,7 @@ import '../widgets/common.dart';
 import 'evacuation_centers_screen.dart';
 import 'home_shell.dart';
 import 'info_screens.dart';
-import 'login_screen.dart';
+import 'account.dart';
 import 'settings_screen.dart';
 
 /// ============================================================

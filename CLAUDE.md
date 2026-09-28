@@ -36,11 +36,17 @@ project: Adrian writes all the code, his groupmates only do the paperwork.
 - Style ("calm water"): no glows or gradient-filled tiles; the thin
   `WaterLines` pattern is the signature. Local identity: real local
   photos (`LocalPhoto` in demo_data.dart, credits shown on the photo and
-  listed on About) and Kapampangan greetings (Home banner, login).
+  listed on About) and Kapampangan greetings (Home banner, landing page).
+- **No login screen in the app.** Logging in happens on the landing page
+  (`landing/`, plain HTML/CSS/JS), whose popup opens the app as
+  `app/?as=user|guest&theme=light|dark` (optional `&tab=map` etc.).
+  `lib/services/session.dart` reads that; on the published site, /app/
+  without `as=` redirects to the landing page. Log in / Log out in the
+  app go back to the landing page (`lib/screens/account.dart`).
 - Roles: Admin, Registered User, Guest. For now only guest vs logged-in
-  exists: `isGuest` (demo_data.dart, set by the login screen). When a
-  guest taps something they can't do, call `showLoginRequired`
-  (login_screen.dart). Votes on flood pins live in `myVotes` (memory only).
+  exists: `isGuest` (demo_data.dart, set from `?as=`). When a guest taps
+  something they can't do, call `showLoginRequired` (account.dart).
+  Votes on flood pins live in `myVotes` (memory only).
 - No real offices as the app's admin: the admins aren't confirmed yet, so
   the app says "Admin" (`kAdminSource`) and calls itself an unofficial demo.
   Real emergency hotlines (CDRRMO, PNP...) stay as they are.
@@ -58,7 +64,7 @@ project: Adrian writes all the code, his groupmates only do the paperwork.
 - `lib/widgets/flood_depth.dart`: flood depth levels (ankle → over head),
   cm/ft, the gauge drawing, and the depth → risk cut-offs (≤20 cm normal,
   ≤50 moderate, else high) that the map legend also shows.
-- `test/widget_test.dart` checks the login screen and that every screen
+- `test/widget_test.dart` checks the app opens on Home and that every screen
   renders at phone size without overflow. Use `pump()`, not
   `pumpAndSettle()`: several animations repeat forever.
 
@@ -74,7 +80,7 @@ project: Adrian writes all the code, his groupmates only do the paperwork.
   Flutter's `flutter-first-frame`). `index.html` also preloads
   `main.dart.js`, the fonts, and the asset manifests. If you add or rename
   a font, update those preload links too.
-- Every page except Login and Home is deferred (downloaded on first use,
+- Every page except Home is deferred (downloaded on first use,
   with a skeleton meanwhile): Map, Alerts, Assistance, More, Report,
   Settings, Help, About. Always open them through
   `lib/screens/deferred_screens.dart` (never import those screen files
@@ -86,10 +92,40 @@ project: Adrian writes all the code, his groupmates only do the paperwork.
 
 ## Deploying
 
-Every push to `main` builds and publishes to
-https://adriantulabut5747.github.io/AgosAlert/ via
-`.github/workflows/deploy-pages.yml`. So a broken push to `main` breaks the
-live site his groupmates screenshot — use a branch for risky changes.
+Every push to `main` publishes, via `.github/workflows/deploy-pages.yml`:
+- the landing page (`landing/`) at https://adriantulabut5747.github.io/AgosAlert/
+- the Flutter app at https://adriantulabut5747.github.io/AgosAlert/app/
+  (built with `--base-href /AgosAlert/app/`)
+
+So a broken push to `main` breaks the live site his groupmates
+screenshot — use a branch for risky changes.
+
+## Landing page (`landing/`)
+
+- Hero modeled on a dribbble-style app landing: two tilted CSS phones
+  (Home in front, Map behind) with real app screenshots in
+  `landing/img/{home,map}-{dark,light}.webp` (390 wide at 2x, taken with
+  the status bar left out; the page draws its own), slightly blurred on
+  purpose. Retake them when the Home or Map tab changes visibly.
+- The weather card and flood outlook chip popping out of the front phone
+  are live (Open-Meteo, same request and rules as weather.dart, ported to
+  landing.js). So are the numbers in "How it works" cards 1-2. Keep the
+  outlook rule in sync with `floodOutlook` in weather.dart.
+- Sections below the hero: 01 How it works (4 cards, no phone mockups:
+  Adrian asked for none), 02 Hotlines (same numbers as kHotlines, plus a
+  "save all" .vcf download), 03 Coverage (SVG map from OpenStreetMap:
+  city boundary + all 27 barangays, drawn once with Python, not live),
+  04 FAQ. Every photo carries its credit in a caption and in the footer.
+- "Coming soon" store badges on purpose: the app isn't on either store,
+  and Adrian chose not to fake it. Same for the testimonial/award spots
+  of the reference: replaced by a barangay coverage card and the
+  unofficial-demo notice.
+- Kapampangan greeting by Manila time: abak (5-11), ugtu (11-13),
+  gatpanapun (13-18), bengi (18-5).
+- Preview locally: serve the folder (`python -m http.server` in
+  `landing/`). Login links go to `app/`, which only exists after the
+  deploy's copy step (or a local `flutter build web --base-href /app/`
+  copied into `landing/app/`, which is gitignored).
 
 ## Known issues
 

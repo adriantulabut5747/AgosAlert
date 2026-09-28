@@ -41,9 +41,20 @@ const List<String> kBarangays = [
   'Tabun',
 ];
 
-/// Barangay centers found on OpenStreetMap (others fall back to Poblacion).
+/// Barangay centers found on OpenStreetMap, all 27 (the last 10 were
+/// looked up for the landing page's map, Sept 2026).
 const Map<String, LatLng> kBarangayPoints = {
   'Atlu-Bola': LatLng(15.2355, 120.5823),
+  'Bical': LatLng(15.1949, 120.6198),
+  'Bundagul': LatLng(15.2273, 120.6095),
+  'Calumpang': LatLng(15.2205, 120.5326),
+  'Macapagal Village': LatLng(15.2104, 120.5361),
+  'Mangalit': LatLng(15.2266, 120.5782),
+  'Marcos Village': LatLng(15.2094, 120.5301),
+  'San Joaquin': LatLng(15.2307, 120.5714),
+  'Santa Maria': LatLng(15.2270, 120.5922),
+  'Santo Rosario': LatLng(15.2155, 120.5789),
+  'Sapang Balen': LatLng(15.2504, 120.6005),
   'Cacutud': LatLng(15.2381, 120.5715),
   'Camachiles': LatLng(15.1924, 120.5861),
   'Dapdap': LatLng(15.2245, 120.6127),

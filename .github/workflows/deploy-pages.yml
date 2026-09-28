@@ -1,5 +1,5 @@
-# Builds the Flutter web app and publishes it to
-# https://adriantulabut5747.github.io/AgosAlert/ on every push to main.
+# Publishes the landing page to https://adriantulabut5747.github.io/AgosAlert/
+# and the Flutter web app to .../AgosAlert/app/ on every push to main.
 name: Deploy to GitHub Pages
 
 # When to run: on every push to main, or by hand ("workflow_dispatch" adds
@@ -42,14 +42,23 @@ jobs:
       # Download the packages listed in pubspec.yaml (flutter_map, http...).
       - run: flutter pub get
 
-      # base-href must match the repo name, because Pages serves the site
-      # from /AgosAlert/, not from the domain root.
-      - run: flutter build web --release --base-href /AgosAlert/
+      # The app lives in /AgosAlert/app/ (the landing page takes the
+      # root), and base-href must say so, or the app looks for its files
+      # in the wrong folder.
+      - run: flutter build web --release --base-href /AgosAlert/app/
 
-      # Package the finished website (build/web) for the deploy job.
+      # Put the site together in _site/:
+      #   _site/          the landing page (landing/ folder, plain HTML)
+      #   _site/app/      the Flutter app
+      - run: |
+          mkdir -p _site
+          cp -r landing/. _site/
+          cp -r build/web _site/app
+
+      # Package the finished website for the deploy job.
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: build/web
+          path: _site
 
   deploy:
     needs: build
