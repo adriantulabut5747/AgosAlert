@@ -54,7 +54,7 @@ void openReportIncident(BuildContext context) {
 /// Calling loadLibrary() again later is fine: once a library has been
 /// downloaded, it returns immediately.
 /// `.then((_) {}, onError: ...)` swallows the error so a failed download
-/// isn't reported as a crash.
+/// isn't reported as a crashhh.
 Future<void> preloadDeferredScreens() async {
   await Future.wait([
     map_tab.loadLibrary().then((_) {}, onError: (Object _) {}),
