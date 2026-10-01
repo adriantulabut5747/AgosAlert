@@ -142,7 +142,8 @@ class _HomeTabState extends State<HomeTab> {
     );
   }
 
-  // The photo banner at the top: a real local river, the greeting in
+  // The photo banner at the top: a rainy local street (night photo in the
+  // dark theme, day photo in the light theme), the greeting in
   // English and in Kapampangan (the local language), and the city.
   Widget _banner(AppColors c, bool wide) {
     final now = DateTime.now();
@@ -152,7 +153,7 @@ class _HomeTabState extends State<HomeTab> {
         ? ('Good afternoon', 'Mayap a gatpanapun')
         : ('Good evening', 'Mayap a bengi');
     return LocalPhotoView(
-      kPhotoSacobia,
+      c.isDark ? kPhotoRainyNight : kPhotoRainyDay,
       height: wide ? 250 : 196,
       radius: wide ? 24 : 22,
       showPlace: wide,
@@ -241,13 +242,21 @@ class _HomeTabState extends State<HomeTab> {
                 const SizedBox(height: 2),
                 Tooltip(
                   message: 'Kapampangan for "$greeting"',
-                  child: Text(
-                    kapampangan,
-                    style: TextStyle(
-                      color: const Color(0xE6FFFFFF),
-                      fontSize: wide ? 17 : 15,
-                      fontStyle: FontStyle.italic,
-                      fontWeight: FontWeight.w500,
+                  // One line always: on a narrow phone it shrinks a little
+                  // instead of wrapping and overflowing the banner.
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      // Mabalaquenian: a resident of Mabalacat.
+                      '$kapampangan, Mabalaquenian!',
+                      maxLines: 1,
+                      style: TextStyle(
+                        color: const Color(0xE6FFFFFF),
+                        fontSize: wide ? 17 : 15,
+                        fontStyle: FontStyle.italic,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
                 ),
@@ -591,7 +600,7 @@ class _WeatherSection extends StatelessWidget {
                       children: [
                         _heroStat(
                           Icons.umbrella_rounded,
-                          '${w.today.rainChance}%',
+                          '${w.rainChanceNow}%',
                           'Rain chance',
                         ),
                         _heroStat(
@@ -1053,6 +1062,13 @@ class _SafetyTips extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SectionHeader('When the water rises'),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Text(
+            'What every Mabalaquenian should do when a flood is coming.',
+            style: TextStyle(color: c.textSecondary, fontSize: 12.5),
+          ),
+        ),
         AppCard(
           padding: EdgeInsets.symmetric(
             horizontal: desktop ? 8 : 18,

@@ -13,6 +13,7 @@
   <meta name="description" content="Live weather, community flood reports, and emergency help for every barangay in Mabalacat City, Pampanga. An unofficial school project.">
   <meta name="theme-color" content="#060911">
   <link rel="icon" type="image/png" href="img/favicon.png">
+  <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
 
   <!-- Pick the theme before anything is drawn, so a light-mode visitor
        never sees a flash of the dark page. Order: ?theme= from the app,
@@ -36,7 +37,7 @@
   <link rel="preconnect" href="https://api.open-meteo.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
   <!-- Only the icons this page uses (icon_names must stay in A-Z order). -->
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,500,1,0&icon_names=ac_unit,account_balance,air,alternate_email,arrow_downward,arrow_forward,call,clear_night,close,cloud,contact_phone,content_copy,dark_mode,delete,foggy,grain,home_work,info,light_mode,local_fire_department,local_police,location_on,lock,nights_stay,opacity,partly_cloudy_day,phone_in_talk,photo_camera,shield,sunny,thumb_up,thunderstorm,umbrella,visibility,visibility_off,water_drop&display=block">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,500,1,0&icon_names=ac_unit,account_balance,air,alternate_email,arrow_downward,arrow_forward,call,clear_night,close,cloud,contact_phone,content_copy,delete,foggy,grain,home_work,info,local_fire_department,local_police,location_on,lock,nights_stay,opacity,partly_cloudy_day,person,phone_in_talk,photo_camera,shield,sunny,thumb_up,thunderstorm,traffic,umbrella,visibility,visibility_off,water_drop&display=block">
   <link rel="stylesheet" href="landing.css">
 </head>
 <body>
@@ -50,11 +51,21 @@
           <img class="logo-on-light" src="img/logo_wordmark.png" alt="agosalert." width="146" height="30">
         </a>
         <div class="topbar-actions">
+          <!-- One sun/moon drawing that morphs between the two (landing.css,
+               "Theme button"), like the app's SunMoonIcon. -->
           <button class="icon-btn" id="themeToggle" type="button" aria-label="Switch to light mode">
-            <span class="ms ms-dark" aria-hidden="true">dark_mode</span>
-            <span class="ms ms-light" aria-hidden="true">light_mode</span>
+            <svg class="sun-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+              <mask id="sunMoonBite"><rect width="24" height="24" fill="#fff"/><circle class="sm-bite" cx="17.5" cy="6.5" r="7.5" fill="#000"/></mask>
+              <g class="sm-rays" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="19.60" y1="12.00" x2="22.20" y2="12.00"/><line x1="17.37" y1="17.37" x2="19.21" y2="19.21"/><line x1="12.00" y1="19.60" x2="12.00" y2="22.20"/><line x1="6.63" y1="17.37" x2="4.79" y2="19.21"/><line x1="4.40" y1="12.00" x2="1.80" y2="12.00"/><line x1="6.63" y1="6.63" x2="4.79" y2="4.79"/><line x1="12.00" y1="4.40" x2="12.00" y2="1.80"/><line x1="17.37" y1="6.63" x2="19.21" y2="4.79"/></g>
+              <circle class="sm-body" cx="12" cy="12" r="9" fill="currentColor" mask="url(#sunMoonBite)"/>
+            </svg>
           </button>
           <button class="btn btn-login" id="openLogin" type="button">Log in</button>
+          <!-- Straight into the app as a guest, no popup. A link, so it works
+               without JavaScript too; landing.js adds the current theme. -->
+          <a class="btn btn-guest" id="guestTop" href="app/?as=guest">
+            <span class="guest-long">Continue as guest</span><span class="guest-short">Guest</span>
+          </a>
         </div>
       </header>
 
@@ -67,7 +78,7 @@
           <!-- Filled in by landing.js from the time in Mabalacat. -->
           <p class="greeting" id="greeting">
             <span class="kap">Mayap a salubung!</span>
-            <span class="tr">Welcome, Mabalacat.</span>
+            <span class="tr">Welcome, Mabalaquenians.</span>
           </p>
 
           <div class="stores">
@@ -265,15 +276,17 @@
           <div class="sec-head reveal">
             <p class="sec-num"><span>02</span> Emergency hotlines</p>
             <h2 id="hot-title">Save these numbers before you need them.</h2>
-            <p class="sec-lede">During a flood you shouldn't have to search for a phone number. Save all five to your contacts now, in one step.</p>
+            <p class="sec-lede">During a flood you shouldn't have to search for a phone number. Save all seven to your contacts now, in one step.</p>
             <button class="btn btn-primary btn-save" type="button" id="saveContacts">
               <span class="ms" aria-hidden="true">contact_phone</span>
-              Save all 5 to my contacts
+              Save all 7 to my contacts
             </button>
-            <p class="save-note">Downloads one contacts file (.vcf). Open it on your phone to add all five numbers.</p>
+            <p class="save-note">Downloads one contacts file (.vcf). Open it on your phone to add all seven numbers.</p>
+            <p class="hot-signoff">Please stay safe, Mabalaquenians!</p>
           </div>
 
-          <!-- Same numbers as the app (kHotlines in lib/data/demo_data.dart). -->
+          <!-- Same numbers as the app (kHotlines in lib/data/demo_data.dart),
+               from the city's official hotline list. -->
           <ul class="hot-list reveal" id="hotList">
             <li data-name="National Emergency Hotline" data-tel="911" data-color="#EF4444">
               <span class="hot-icon ms" aria-hidden="true">phone_in_talk</span>
@@ -287,17 +300,29 @@
               <a class="hot-num" href="tel:+639989994357">0998-999-4357</a>
               <button class="hot-copy icon-btn" type="button" aria-label="Copy 0998-999-4357"><span class="ms" aria-hidden="true">content_copy</span></button>
             </li>
-            <li data-name="Bureau of Fire Protection" data-tel="+639339909960" data-color="#F97316">
+            <li data-name="Bureau of Fire Protection (BFP)" data-tel="+639339909960" data-color="#F97316">
               <span class="hot-icon ms" aria-hidden="true">local_fire_department</span>
-              <span class="hot-name">Bureau of Fire Protection<small>Mabalacat fire station</small></span>
+              <span class="hot-name">Bureau of Fire Protection (BFP)<small>Mabalacat fire station</small></span>
               <a class="hot-num" href="tel:+639339909960">0933-990-9960</a>
               <button class="hot-copy icon-btn" type="button" aria-label="Copy 0933-990-9960"><span class="ms" aria-hidden="true">content_copy</span></button>
             </li>
-            <li data-name="Mabalacat Police (PNP)" data-tel="+639985985458" data-color="#6366F1">
+            <li data-name="Mabalacat Police (PNP)" data-tel="+639485524384" data-color="#6366F1">
               <span class="hot-icon ms" aria-hidden="true">local_police</span>
               <span class="hot-name">Mabalacat Police (PNP)<small>City police station</small></span>
+              <a class="hot-num" href="tel:+639485524384">0948-552-4384</a>
+              <button class="hot-copy icon-btn" type="button" aria-label="Copy 0948-552-4384"><span class="ms" aria-hidden="true">content_copy</span></button>
+            </li>
+            <li data-name="Mabalacat Police (PNP), 2nd line" data-tel="+639985985458" data-color="#6366F1">
+              <span class="hot-icon ms" aria-hidden="true">local_police</span>
+              <span class="hot-name">Mabalacat Police (PNP), 2nd line<small>City police station</small></span>
               <a class="hot-num" href="tel:+639985985458">0998-598-5458</a>
               <button class="hot-copy icon-btn" type="button" aria-label="Copy 0998-598-5458"><span class="ms" aria-hidden="true">content_copy</span></button>
+            </li>
+            <li data-name="Traffic Enforcement (MCTEG)" data-tel="+639360738704" data-color="#EAB308">
+              <span class="hot-icon ms" aria-hidden="true">traffic</span>
+              <span class="hot-name">Traffic Enforcement (MCTEG)<small>Mabalacat City Traffic Enforcement Group</small></span>
+              <a class="hot-num" href="tel:+639360738704">0936-073-8704</a>
+              <button class="hot-copy icon-btn" type="button" aria-label="Copy 0936-073-8704"><span class="ms" aria-hidden="true">content_copy</span></button>
             </li>
             <li data-name="Mabalacat City Hall" data-tel="+63456498620" data-color="#14B8A6">
               <span class="hot-icon ms" aria-hidden="true">account_balance</span>
@@ -312,10 +337,9 @@
       <!-- ================= 03 BARANGAY MAP ================= -->
       <section class="map-sec" id="barangays" aria-labelledby="map-title">
         <figure class="band">
-          <img src="img/plains-mabalacat.webp" alt="Evening sun breaking through clouds over grassy plains" width="2000" height="1500" loading="lazy">
+          <img src="img/bridge-arayat.webp" alt="A highway bridge under big clouds, with Mt. Arayat in the distance" width="2000" height="1334" loading="lazy">
           <figcaption>
-            <span>Evening over the plains near Mabalacat, seen from the expressway.</span>
-            <a href="https://commons.wikimedia.org/wiki/File:Mabalacat_scenery_from_SCTEx_(N._Khan)_-_Flickr.jpg" target="_blank" rel="noopener">Photo: Nishat A. Khan, CC BY 2.0</a>
+            <span>Mt. Arayat under afternoon clouds, seen from the highway.</span>
           </figcaption>
         </figure>
 
@@ -390,12 +414,11 @@
       <div class="foot-top">
         <img class="logo-on-dark" src="img/logo_wordmark_dark.png" alt="agosalert." width="117" height="24">
         <img class="logo-on-light" src="img/logo_wordmark.png" alt="agosalert." width="117" height="24">
-        <p>Unofficial demo. Not from the Mabalacat City government.</p>
+        <p>Made for Mabalaquenians. Unofficial demo, not from the Mabalacat City government.</p>
       </div>
       <div class="foot-credits">
         <span>Weather: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a></span>
         <span>Map data: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors</span>
-        <span>Photo: Nishat A. Khan (CC BY 2.0, Wikimedia Commons)</span>
         <span>© 2026 AgosAlert</span>
       </div>
     </footer>
@@ -424,7 +447,10 @@
           <span class="ms" aria-hidden="true">visibility_off</span>
         </button>
       </label>
-      <button class="link-btn forgot" type="button" id="forgot">Forgot password?</button>
+      <div class="field-links">
+        <button class="link-btn" type="button" id="showRegister">Register an account</button>
+        <button class="link-btn" type="button" id="forgot">Forgot password?</button>
+      </div>
 
       <button class="btn btn-primary" type="submit" id="loginSubmit">
         <span class="btn-label">Log in</span>
@@ -446,6 +472,70 @@
       <button class="link-btn guest" type="button" id="guestLogin">Continue as guest</button>
 
       <p class="modal-demo">Demo: just tap Log in, no email or password needed. Nothing is saved or sent.</p>
+    </form>
+
+    <!-- Registration: same popup, swapped in place of the login form. The
+         fields come from the research paper (users table, "Register / Log
+         In" use case): name, email, password, barangay, optional phone. -->
+    <form class="modal-card" id="registerForm" novalidate hidden>
+      <button class="icon-btn modal-close" type="button" id="closeRegister" aria-label="Close">
+        <span class="ms" aria-hidden="true">close</span>
+      </button>
+      <img class="modal-logo logo-on-dark" src="img/logo_icon_dark.png" alt="" width="56" height="56">
+      <img class="modal-logo logo-on-light" src="img/logo_icon.png" alt="" width="56" height="56">
+      <h2 id="registerTitle">Create an account</h2>
+      <p class="modal-sub">For Mabalaquenians, the residents of Mabalacat City</p>
+
+      <label class="field">
+        <span class="ms" aria-hidden="true">person</span>
+        <input type="text" name="fullName" placeholder="Full name" autocomplete="name" maxlength="100" aria-label="Full name">
+      </label>
+      <label class="field">
+        <span class="ms" aria-hidden="true">alternate_email</span>
+        <input type="email" name="email" placeholder="Email" autocomplete="email" maxlength="255" aria-label="Email">
+      </label>
+      <label class="field">
+        <span class="ms" aria-hidden="true">call</span>
+        <input type="tel" name="phone" placeholder="Phone number (optional)" autocomplete="tel" maxlength="15" aria-label="Phone number, optional">
+      </label>
+      <p class="field-hint">Only admins can see your phone number.</p>
+      <label class="field">
+        <span class="ms" aria-hidden="true">location_on</span>
+        <select name="barangay" aria-label="Barangay where you live">
+          <option value="" selected disabled>Barangay where you live</option>
+          <option>Atlu-Bola</option><option>Bical</option><option>Bundagul</option><option>Cacutud</option>
+          <option>Calumpang</option><option>Camachiles</option><option>Dapdap</option><option>Dau</option>
+          <option>Dolores</option><option>Duquit</option><option>Lakandula</option><option>Mabiga</option>
+          <option>Macapagal Village</option><option>Mamatitang</option><option>Mangalit</option>
+          <option>Marcos Village</option><option>Mawaque</option><option>Paralayunan</option>
+          <option>Poblacion</option><option>San Francisco</option><option>San Joaquin</option>
+          <option>Santa Ines</option><option>Santa Maria</option><option>Santo Rosario</option>
+          <option>Sapang Balen</option><option>Sapang Biabas</option><option>Tabun</option>
+        </select>
+      </label>
+      <label class="field">
+        <span class="ms" aria-hidden="true">lock</span>
+        <input type="password" name="password" id="regPassword" placeholder="Password (at least 8 characters)" autocomplete="new-password" aria-label="Password">
+        <button class="field-btn" type="button" id="toggleRegPassword" aria-label="Show password">
+          <span class="ms" aria-hidden="true">visibility_off</span>
+        </button>
+      </label>
+      <label class="field">
+        <span class="ms" aria-hidden="true">lock</span>
+        <input type="password" name="confirm" placeholder="Confirm password" autocomplete="new-password" aria-label="Confirm password">
+      </label>
+
+      <p class="form-error" id="registerError" role="alert" hidden></p>
+
+      <button class="btn btn-primary" type="submit" id="registerSubmit">
+        <span class="btn-label">Register</span>
+        <span class="ms" aria-hidden="true">arrow_forward</span>
+        <span class="spinner" aria-hidden="true"></span>
+      </button>
+
+      <button class="link-btn guest" type="button" id="showLogin">Already have an account? Log in</button>
+
+      <p class="modal-demo">Demo: nothing is saved or sent. The account isn't really created.</p>
     </form>
   </dialog>
 

@@ -41,6 +41,29 @@ void main() {
     expect(find.text('Quick actions'), findsOneWidget);
   });
 
+  // The theme button switches the theme with the circle reveal
+  // (widgets/theme_reveal.dart): a picture of the old screen is taken,
+  // then a hole grows in it. Afterwards the picture must be gone.
+  testWidgets('Theme button switches the theme with the reveal', (
+    tester,
+  ) async {
+    themeNotifier.value = ThemeMode.dark;
+    addTearDown(() => themeNotifier.value = ThemeMode.dark);
+    await tester.pumpWidget(const AgosAlertApp());
+    await tester.pump(const Duration(seconds: 1));
+
+    await tester.tap(find.byTooltip('Switch to light mode'));
+    // Taking the picture is real async work, so let it run outside the
+    // test's fake clock, then play the 650 ms animation.
+    await tester.runAsync(
+      () => Future.delayed(const Duration(milliseconds: 200)),
+    );
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(themeNotifier.value, ThemeMode.light);
+    expect(find.byTooltip('Switch to dark mode'), findsOneWidget);
+  });
 
   // Each tab and screen should build on a phone without layout errors
   // (a "RenderFlex overflowed" error makes the test fail).

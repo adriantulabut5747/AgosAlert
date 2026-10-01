@@ -891,15 +891,6 @@ class _MapTabState extends State<MapTab> {
                 Expanded(
                   child: _statBox(
                     c,
-                    'Occupancy',
-                    '${e.occupants}/${e.capacity}',
-                    c.accent,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _statBox(
-                    c,
                     'Distance',
                     '${e.distanceKm} km',
                     c.accent,

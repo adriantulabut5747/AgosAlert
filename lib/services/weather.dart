@@ -68,6 +68,13 @@ class MabalacatWeather {
     required this.daily,
   });
 
+  /// Chance of rain in the current hour. `hourly` starts at this hour, so
+  /// it's the first entry. (today.rainChance is the day's highest hour,
+  /// which is why it never moves during the day; the flood outlook still
+  /// uses that one, since it's about the whole day.)
+  int get rainChanceNow =>
+      hourly.isNotEmpty ? hourly.first.rainChance : today.rainChance;
+
   DailyForecast get today => daily.first;
 
   // The web address we ask for the weather. Uri.https builds it safely:

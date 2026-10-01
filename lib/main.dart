@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'screens/home_shell.dart';
 import 'services/session.dart';
 import 'theme.dart';
+import 'widgets/theme_reveal.dart';
 
 // The app starts here. runApp() puts AgosAlertApp on the screen.
 void main() {
@@ -27,7 +28,9 @@ class AgosAlertApp extends StatelessWidget {
     // ValueListenableBuilder rebuilds the MaterialApp whenever it changes,
     // which is how the dark/light button in the top bar switches the
     // whole app at once. MaterialApp gets both themes and `themeMode`
-    // picks which one to use; it animates the colors over 400 ms.
+    // picks which one to use. The switch itself is animated by
+    // ThemeReveal (a circle spreading from the button), so MaterialApp's
+    // own color fade is off.
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
       builder: (context, mode, _) => MaterialApp(
@@ -36,7 +39,8 @@ class AgosAlertApp extends StatelessWidget {
         theme: buildLightTheme(),
         darkTheme: buildDarkTheme(),
         themeMode: mode,
-        themeAnimationDuration: const Duration(milliseconds: 400),
+        themeAnimationDuration: Duration.zero,
+        builder: (context, child) => ThemeReveal(child: child!),
         // No login screen: the landing page already asked (see
         // screens/account.dart). launchTab is usually Home.
         home: HomeShell(initialTab: launchTab),

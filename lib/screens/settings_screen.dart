@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/theme_reveal.dart';
 
 /// ============================================================
 /// SETTINGS — appearance, notifications, location
@@ -166,7 +167,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   ) {
     final selected = m == current;
     return PressableScale(
-      onTap: () => themeNotifier.value = m,
+      onTap: () => setThemeMode(m),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
         padding: const EdgeInsets.symmetric(vertical: 16),

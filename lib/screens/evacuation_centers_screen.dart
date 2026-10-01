@@ -6,7 +6,7 @@ import '../widgets/common.dart';
 import '../widgets/links.dart';
 
 /// ============================================================
-/// EVACUATION CENTERS — list with capacity and directions
+/// EVACUATION CENTERS — list with status and directions
 /// ============================================================
 class EvacuationCentersScreen extends StatefulWidget {
   const EvacuationCentersScreen({super.key});
@@ -29,11 +29,6 @@ class _EvacuationCentersScreenState extends State<EvacuationCentersScreen> {
       ..sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
     final shown = _openOnly ? centers.where((e) => e.open).toList() : centers;
     final openCount = centers.where((e) => e.open).length;
-    // Free spaces across all open centers. fold starts at 0 and adds each
-    // center's (capacity - occupants), like a running total.
-    final spaces = centers
-        .where((e) => e.open)
-        .fold<int>(0, (sum, e) => sum + e.capacity - e.occupants);
 
     return SubpageScaffold(
       title: 'Evacuation centers',
@@ -43,28 +38,14 @@ class _EvacuationCentersScreenState extends State<EvacuationCentersScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: _summary(
-                      c,
-                      '$openCount',
-                      'Open now',
-                      kSafe,
-                      Icons.door_front_door_rounded,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _summary(
-                      c,
-                      '$spaces',
-                      'Spaces left',
-                      kSkyBlue,
-                      Icons.groups_rounded,
-                    ),
-                  ),
-                ],
+              // No head count: nobody can track how many people are
+              // inside a center, so the app only says open or standby.
+              _summary(
+                c,
+                '$openCount of ${centers.length}',
+                'Open now',
+                kSafe,
+                Icons.door_front_door_rounded,
               ),
               const SizedBox(height: 18),
               Row(
@@ -149,11 +130,6 @@ class EvacCenterCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = AppColors(context);
     final e = center;
-    final fillColor = e.fill >= 0.85
-        ? kDanger
-        : e.fill >= 0.6
-        ? kCaution
-        : kSafe;
     return AppCard(
       padding: EdgeInsets.zero,
       onTap: () => openDirections(context, e.point),
@@ -247,48 +223,23 @@ class EvacCenterCard extends StatelessWidget {
                   'Brgy. ${e.barangay}',
                   style: TextStyle(color: c.textSecondary, fontSize: 11.5),
                 ),
-                const SizedBox(height: 10),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: LinearProgressIndicator(
-                    value: e.fill,
-                    minHeight: 6,
-                    backgroundColor: c.surfaceAlt,
-                    valueColor: AlwaysStoppedAnimation(fillColor),
+                if (!compact) ...[
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Icon(Icons.directions_rounded, size: 16, color: c.accent),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Directions',
+                        style: TextStyle(
+                          color: c.accent,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        '${e.occupants} / ${e.capacity} people',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(color: c.textSecondary, fontSize: 11),
-                      ),
-                    ),
-                    if (!compact)
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.directions_rounded,
-                            size: 16,
-                            color: c.accent,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Directions',
-                            style: TextStyle(
-                              color: c.accent,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                  ],
-                ),
+                ],
               ],
             ),
           ),

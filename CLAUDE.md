@@ -14,6 +14,12 @@ project: Adrian writes all the code, his groupmates only do the paperwork.
   GradientButton, FadeSlideIn, AnimatedWaves, showAppSheet...). Reuse
   these instead of restyling from scratch. `lib/widgets/links.dart`:
   tap-to-call (always asks first) and Google Maps directions.
+- Custom icons, drawn from SVG path strings (via `path_drawing`):
+  `lib/widgets/nav_icons.dart` = the nav tabs, one color, Facebook-style
+  (gray outline, solid blue when selected, no highlight pill: Adrian
+  rejected both the pill and two-tone nav icons). `lib/widgets/duo_icons.dart`
+  = the Assistance tab's two-tone navy + cyan icons (Get help tiles,
+  hotlines), which Adrian likes as they are.
 - `lib/services/weather.dart`: live Mabalacat weather from Open-Meteo (free,
   no key) and the rain-based flood outlook.
 - `lib/data/demo_data.dart`: all made-up data (flood zones, alerts,
@@ -33,6 +39,16 @@ project: Adrian writes all the code, his groupmates only do the paperwork.
   `showAppSheet` opens a centered popup instead of a bottom sheet.
   Desktop has its own layouts for Home (two columns), Map (side panel),
   Alerts (list + details), Assistance, and Login (photo panel).
+- Evacuation centers show open/standby and distance only: no occupancy
+  or capacity (nobody can count people inside a center).
+- Home banner photo: `photo_rainy_night.jpg` in the dark theme,
+  `photo_rainy_day.jpg` in the light theme. Adrian's own photos, so their
+  `LocalPhoto` credit is empty (no label on the photo, not on About).
+- Hotlines (`kHotlines`): the city's official list (CDRRMO, BFP, PNP x2,
+  MCTEG) plus 911 and City Hall; the landing page lists the same seven.
+- "Mabalaquenian(s)" = residents of Mabalacat. Adrian likes the word; it's
+  used on purpose in a few spots (Home greeting, hotline sign-off, alerts
+  empty state, safety tips, landing greeting/footer, register popup).
 - Style ("calm water"): no glows or gradient-filled tiles; the thin
   `WaterLines` pattern is the signature. Local identity: real local
   photos (`LocalPhoto` in demo_data.dart, credits shown on the photo and
@@ -115,7 +131,11 @@ screenshot — use a branch for risky changes.
   Adrian asked for none), 02 Hotlines (same numbers as kHotlines, plus a
   "save all" .vcf download), 03 Coverage (SVG map from OpenStreetMap:
   city boundary + all 27 barangays, drawn once with Python, not live),
-  04 FAQ. Every photo carries its credit in a caption and in the footer.
+  04 FAQ. The section 03 photo (`bridge-arayat.webp`) is Adrian's own, so no
+  credit; any Wikimedia photo added later needs its credit shown.
+- Top bar: round theme button (Adrian tried a sliding day/night switch
+  and preferred the round button), Log in, and "Continue as guest"
+  (straight to `app/?as=guest`, "Guest" on phones).
 - "Coming soon" store badges on purpose: the app isn't on either store,
   and Adrian chose not to fake it. Same for the testimonial/award spots
   of the reference: replaced by a barangay coverage card and the

@@ -173,28 +173,34 @@ class _AlertsTabState extends State<AlertsTab> {
   }
 
   Widget _chips() {
-    return SizedBox(
-      height: 40,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        clipBehavior: Clip.none,
-        children: [
-          SelectChip(
-            label: 'All  ${kAlerts.length}',
-            selected: _filter == null,
-            onTap: () => setState(() => _filter = null),
-          ),
-          for (final cat in AlertCategory.values) ...[
-            const SizedBox(width: 8),
+    // The chips stop at the page margins when scrolled sideways (they used
+    // to slide out to the screen edges). Only the left and right sides are
+    // clipped, so the selected chip's shadow below isn't cut off.
+    return ClipRect(
+      clipper: const _SidesClipper(),
+      child: SizedBox(
+        height: 40,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          clipBehavior: Clip.none,
+          children: [
             SelectChip(
-              label:
-                  '${cat.label}  ${kAlerts.where((a) => a.category == cat).length}',
-              icon: cat.icon,
-              selected: _filter == cat,
-              onTap: () => setState(() => _filter = cat),
+              label: 'All  ${kAlerts.length}',
+              selected: _filter == null,
+              onTap: () => setState(() => _filter = null),
             ),
+            for (final cat in AlertCategory.values) ...[
+              const SizedBox(width: 8),
+              SelectChip(
+                label:
+                    '${cat.label}  ${kAlerts.where((a) => a.category == cat).length}',
+                icon: cat.icon,
+                selected: _filter == cat,
+                onTap: () => setState(() => _filter = cat),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -396,7 +402,8 @@ class _AlertsTabState extends State<AlertsTab> {
           ),
           const SizedBox(height: 4),
           Text(
-            'We\'ll let you know when something comes up.',
+            'All clear for now, Mabalaquenians. We\'ll let you know when something comes up.',
+            textAlign: TextAlign.center,
             style: TextStyle(color: c.textSecondary, fontSize: 12.5),
           ),
         ],
@@ -566,4 +573,17 @@ class _AlertDetails extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Clips a widget's left and right edges only; top and bottom get 24 px
+/// of room so shadows there still show.
+class _SidesClipper extends CustomClipper<Rect> {
+  const _SidesClipper();
+
+  @override
+  Rect getClip(Size size) =>
+      Rect.fromLTRB(0, -24, size.width, size.height + 24);
+
+  @override
+  bool shouldReclip(_SidesClipper oldClipper) => false;
 }

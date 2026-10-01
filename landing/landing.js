@@ -30,8 +30,20 @@
     try { localStorage.setItem('agos-theme', t); } catch (e) {}
     syncThemeButton();
   }
+  // The new theme spreads out in a circle from the button. Browsers
+  // without View Transitions (or with reduced motion) just switch.
   themeToggle.addEventListener('click', function () {
-    setTheme(theme() === 'dark' ? 'light' : 'dark');
+    var next = theme() === 'dark' ? 'light' : 'dark';
+    if (!document.startViewTransition || reduceMotion) { setTheme(next); return; }
+    var box = themeToggle.getBoundingClientRect();
+    var x = box.left + box.width / 2, y = box.top + box.height / 2;
+    var r = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+    document.startViewTransition(function () { setTheme(next); }).ready.then(function () {
+      root.animate(
+        { clipPath: ['circle(0px at ' + x + 'px ' + y + 'px)', 'circle(' + r + 'px at ' + x + 'px ' + y + 'px)'] },
+        { duration: 650, easing: 'cubic-bezier(.65, 0, .35, 1)', pseudoElement: '::view-transition-new(root)' }
+      );
+    });
   });
   syncThemeButton();
 
@@ -87,11 +99,11 @@
 
   var greetings = [
     // [from hour, until hour, Kapampangan, English]
-    [5, 11, 'Mayap a abak!', 'Good morning, Mabalacat.'],
-    [11, 13, 'Mayap a ugtu!', 'Good noon, Mabalacat.'],
-    [13, 18, 'Mayap a gatpanapun!', 'Good afternoon, Mabalacat.'],
+    [5, 11, 'Mayap a abak!', 'Good morning, Mabalaquenians.'],
+    [11, 13, 'Mayap a ugtu!', 'Good noon, Mabalaquenians.'],
+    [13, 18, 'Mayap a gatpanapun!', 'Good afternoon, Mabalaquenians.'],
   ];
-  var night = ['Mayap a bengi!', 'Good evening, Mabalacat.'];
+  var night = ['Mayap a bengi!', 'Good evening, Mabalaquenians.'];
 
   function manilaTime() {
     var parts = new Intl.DateTimeFormat('en-US', {
@@ -135,6 +147,7 @@
   var WEATHER_URL = 'https://api.open-meteo.com/v1/forecast'
     + '?latitude=15.2236&longitude=120.5714'
     + '&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m,is_day'
+    + '&hourly=precipitation_probability'
     + '&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum'
     + '&forecast_days=1&timezone=Asia%2FManila';
 
@@ -198,7 +211,11 @@
     var code = cur.weather_code, isDay = cur.is_day === 1;
     var info = weatherInfo(code, isDay), grad = weatherGradient(code, isDay);
     var max = Math.round(day.temperature_2m_max[0]), min = Math.round(day.temperature_2m_min[0]);
+    // rainChance is the day's highest hour (used by the flood outlook);
+    // the card shows this hour's chance, so it changes during the day.
     var rainChance = day.precipitation_probability_max[0] || 0;
+    var hourIdx = json.hourly.time.indexOf(cur.time.slice(0, 13) + ':00');
+    var chanceNow = hourIdx >= 0 ? json.hourly.precipitation_probability[hourIdx] : rainChance;
     var rainSum = (day.precipitation_sum[0] || 0).toFixed(1);
 
     card.style.background = 'linear-gradient(135deg, ' + grad[0] + ', ' + grad[1] + ')';
@@ -206,7 +223,7 @@
     $('wLabel').textContent = info[0];
     $('wIcon').textContent = info[1];
     $('wSub').textContent = 'H ' + max + '°  ·  L ' + min + '°  ·  Feels ' + Math.round(cur.apparent_temperature) + '°';
-    $('wRainChance').textContent = rainChance + '%';
+    $('wRainChance').textContent = chanceNow + '%';
     $('wRainSum').textContent = rainSum + ' mm';
     $('wHumidity').textContent = cur.relative_humidity_2m + '%';
     $('wWind').textContent = Math.round(cur.wind_speed_10m) + ' km/h';
@@ -320,9 +337,25 @@
   var form = $('loginForm');
   var submit = $('loginSubmit');
 
+  var regForm = $('registerForm');
+  var regSubmit = $('registerSubmit');
+  var regError = $('registerError');
+
+  // The popup holds two cards, login and register; only one is shown.
+  function showCard(which) {
+    var reg = which === 'register';
+    form.hidden = reg;
+    regForm.hidden = !reg;
+    regError.hidden = true;
+    modal.setAttribute('aria-labelledby', reg ? 'registerTitle' : 'loginTitle');
+    if (matchMedia('(pointer: fine)').matches) (reg ? regForm.fullName : form.email).focus();
+  }
+
   function openLogin() {
     if (modal.open) return;
     modal.classList.remove('closing');
+    form.hidden = false;
+    regForm.hidden = true;
     modal.showModal();
     // Put the cursor in the email field on computers. On phones that
     // would pop the keyboard up over the popup straight away.
@@ -333,7 +366,8 @@
     if (!modal.open || modal.classList.contains('closing')) return;
     if (reduceMotion) { modal.close(); return; }
     modal.classList.add('closing');
-    modal.querySelector('.modal-card').addEventListener('animationend', function done() {
+    // Only the visible card animates (the other one is display:none).
+    modal.querySelector('.modal-card:not([hidden])').addEventListener('animationend', function done() {
       modal.classList.remove('closing');
       modal.close();
     }, { once: true });
@@ -357,21 +391,60 @@
     showToast('Password reset isn’t available in the demo yet.');
   });
 
+  $('showRegister').addEventListener('click', function () { showCard('register'); });
+  $('showLogin').addEventListener('click', function () { showCard('login'); });
+  $('closeRegister').addEventListener('click', closeLogin);
+
+  $('toggleRegPassword').addEventListener('click', function () {
+    var input = $('regPassword'), show = input.type === 'password';
+    input.type = show ? 'text' : 'password';
+    this.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+    this.querySelector('.ms').textContent = show ? 'visibility' : 'visibility_off';
+  });
+
+  // Returns the first problem with the form, or '' when it's fine.
+  function registerProblem() {
+    var f = regForm;
+    if (f.fullName.value.trim().length < 2) return 'Enter your full name.';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.value.trim())) return 'Enter a valid email address.';
+    var phone = f.phone.value.replace(/[\s-]/g, '');
+    if (phone && !/^\+?\d{10,14}$/.test(phone)) return 'Phone number should be 10 to 14 digits, or leave it empty.';
+    if (!f.barangay.value) return 'Choose the barangay where you live.';
+    if (f.password.value.length < 8) return 'Password must be at least 8 characters.';
+    if (f.password.value !== f.confirm.value) return 'The two passwords don’t match.';
+    return '';
+  }
+
+  // Demo registration: checked, but nothing is saved or sent.
+  regForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var problem = registerProblem();
+    regError.hidden = !problem;
+    regError.textContent = problem;
+    if (!problem) enterApp('user', regSubmit);
+  });
+
   // Demo login: no checks, nothing sent. A short pause so the button's
   // loading state is visible, then into the app.
-  function enterApp(as) {
-    submit.classList.add('loading');
-    submit.disabled = true;
+  function enterApp(as, btn) {
+    btn = btn || submit;
+    btn.classList.add('loading');
+    btn.disabled = true;
     setTimeout(function () { location.href = appUrl(as); }, reduceMotion ? 0 : 700);
   }
   form.addEventListener('submit', function (e) { e.preventDefault(); enterApp('user'); });
   $('googleLogin').addEventListener('click', function () { enterApp('user'); });
   $('guestLogin').addEventListener('click', function () { enterApp('guest'); });
+  // Top bar "Continue as guest": same as above, without opening the popup.
+  // Updated on click so it carries the theme picked on this page.
+  $('guestTop').addEventListener('click', function () { this.href = appUrl('guest'); });
 
   // Coming back with the Back button restores this page from memory with
   // the button still spinning. pageshow + persisted = restored that way.
   addEventListener('pageshow', function (e) {
-    if (e.persisted) { submit.classList.remove('loading'); submit.disabled = false; }
+    if (e.persisted) {
+      [submit, regSubmit].forEach(function (b) { b.classList.remove('loading'); b.disabled = false; });
+    }
   });
 
   /* ---------------- Fade-in on scroll ----------------
@@ -415,7 +488,7 @@
     a.download = 'Mabalacat emergency hotlines.vcf';
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
-    showToast('Contacts file downloaded. Open it to add all five numbers.');
+    showToast('Contacts file downloaded. Open it to add all seven numbers.');
   });
 
   // The app's "Log in" links here with #login: open the popup right away.

@@ -108,9 +108,7 @@ img { display: block; max-width: 100%; }
 [data-theme="dark"] .logo-on-light,
 [data-theme="light"] .logo-on-dark,
 [data-theme="dark"] .shot-light,
-[data-theme="light"] .shot-dark,
-[data-theme="dark"] .ms-light,
-[data-theme="light"] .ms-dark { display: none; }
+[data-theme="light"] .shot-dark { display: none; }
 
 /* ------------------------------------------------------------
    Page + hero panel
@@ -171,6 +169,36 @@ img { display: block; max-width: 100%; }
 .icon-btn:active { transform: scale(.94); }
 .icon-btn .ms { font-size: 20px; }
 
+/* ---------- Theme button ----------
+   Shows what you'll switch TO, like the app: a yellow sun in the dark
+   theme, a blue moon in the light one. It's one drawing that morphs:
+   the rays pull in and fade, the body grows, a "bite" (in the mask)
+   slides in to leave a crescent, and the whole icon turns a quarter
+   turn (ending upright on the moon).
+   The back-ease overshoots a little, which gives the bounce. */
+.sun-moon {
+  --bounce: cubic-bezier(.34, 1.56, .64, 1);
+  display: block; overflow: visible;
+  transition: transform .6s var(--bounce), color .4s ease;
+}
+.sm-body, .sm-rays { transform-box: fill-box; transform-origin: center; }
+.sm-body, .sm-bite, .sm-rays { transition: transform .6s var(--bounce), opacity .35s ease; }
+
+/* Light theme: the moon. */
+[data-theme="light"] .sun-moon { color: var(--sky); }
+[data-theme="light"] .sm-rays { opacity: 0; transform: scale(.5); }
+
+/* Dark theme: the sun. */
+[data-theme="dark"] .sun-moon { color: var(--yellow); transform: rotate(-90deg); }
+[data-theme="dark"] .sm-body { transform: scale(.56); }
+[data-theme="dark"] .sm-bite { transform: translate(8px, -8px); }
+
+/* The page switch itself: landing.js grows the new theme in a circle
+   from the button (View Transitions API). These turn off the browser's
+   default cross-fade so only the circle shows. */
+::view-transition-old(root),
+::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   border: 0; border-radius: 999px;
@@ -185,6 +213,13 @@ img { display: block; max-width: 100%; }
   box-shadow: 0 8px 20px -10px rgba(41, 197, 246, .7);
 }
 .btn-login:hover { box-shadow: 0 10px 24px -8px rgba(41, 197, 246, .8); }
+.btn-guest {
+  height: 42px; padding: 0 20px;
+  color: var(--text); font-size: 14px; text-decoration: none;
+  border: 1px solid var(--border-strong);
+}
+.btn-guest:hover { background: var(--surface); }
+.guest-short { display: none; }
 
 /* ------------------------------------------------------------
    Hero layout: text on the left, phones on the right
@@ -721,6 +756,7 @@ a.help:hover { box-shadow: inset 0 0 0 1.5px var(--accent); }
 .hot-grid .sec-head { margin-bottom: 0; position: sticky; top: 96px; }
 .btn-primary.btn-save { width: auto; padding: 0 24px; margin-top: 32px; }
 .save-note { margin: 12px 0 0; font-size: 12.5px; color: var(--muted); }
+.hot-signoff { margin: 22px 0 0; font-size: 15px; font-weight: 700; color: var(--text); }
 
 .hot-list {
   list-style: none; margin: 0; padding: 8px;
@@ -762,7 +798,7 @@ a.help:hover { box-shadow: inset 0 0 0 1.5px var(--accent); }
 /* The photo band fades into the page at the bottom, and the map
    section's heading slides up over that fade. */
 .band { position: relative; margin: 0; height: clamp(320px, 62vh, 620px); }
-.band img { width: 100%; height: 100%; object-fit: cover; }
+.band img { width: 100%; height: 100%; object-fit: cover; object-position: center 75%; }
 .band::after {
   content: ""; position: absolute; inset: 0;
   background: linear-gradient(180deg, color-mix(in srgb, var(--page) 20%, transparent) 0%, transparent 30%, var(--page) 100%);
@@ -911,7 +947,21 @@ a.help:hover { box-shadow: inset 0 0 0 1.5px var(--accent); }
 .field-btn:hover { background: var(--surface); }
 
 .link-btn { border: 0; background: none; padding: 6px 0; font-weight: 600; }
-.forgot { display: block; margin: 6px 0 12px auto; font-size: 12.5px; color: var(--accent); }
+.field-links { display: flex; justify-content: space-between; gap: 12px; margin: 6px 0 12px; }
+.field-links .link-btn { font-size: 12.5px; color: var(--accent); }
+.modal-card[hidden] { display: none; }
+.field select {
+  flex: 1; min-width: 0; height: 100%;
+  border: 0; outline: 0; background: transparent;
+  font: inherit; font-size: 15px; color: var(--text);
+}
+.field select:invalid { color: var(--muted); }
+.field select option { color: var(--text); background: var(--surface-solid); }
+.field-hint { margin: 6px 0 12px 16px; font-size: 12px; color: var(--muted); }
+.form-error { margin: 12px 0 0; font-size: 13px; line-height: 1.4; color: #f87171; }
+.form-error + .btn-primary { margin-top: 12px; }
+#registerForm .btn-primary { margin-top: 18px; }
+#registerForm .form-error:not([hidden]) + .btn-primary { margin-top: 12px; }
 
 .btn-primary {
   position: relative; width: 100%; height: 52px; border-radius: 16px;
@@ -1017,6 +1067,9 @@ a.help:hover { box-shadow: inset 0 0 0 1.5px var(--accent); }
   .hero { padding-top: 16px; padding-bottom: 24px; }
   .brand img { height: 26px; }
   .btn-login { padding: 0 18px; }
+  .btn-guest { padding: 0 16px; }
+  .guest-long { display: none; }
+  .guest-short { display: inline; }
   .copy { padding-top: 36px; }
   h1 { font-size: clamp(32px, 9.2vw, 40px); }
   .greeting { font-size: 15.5px; margin-top: 16px; }

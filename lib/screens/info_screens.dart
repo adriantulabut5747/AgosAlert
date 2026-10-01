@@ -179,7 +179,8 @@ class AboutScreen extends StatelessWidget {
                       'Apalit, Pampanga (2023) by E911a, Wikimedia Commons, CC BY-SA 4.0',
                     ),
                     for (final p in kLocalPhotos)
-                      _source(c, p.place, '${p.credit} (Wikimedia Commons)'),
+                      if (p.credit.isNotEmpty)
+                        _source(c, p.place, '${p.credit} (Wikimedia Commons)'),
                   ],
                 ),
               ),

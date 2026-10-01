@@ -5,7 +5,10 @@ import 'package:flutter/material.dart';
 import '../data/demo_data.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/nav_icons.dart';
 import '../widgets/responsive.dart';
+import '../widgets/sun_moon_icon.dart';
+import '../widgets/theme_reveal.dart';
 import '../services/prefetch.dart';
 import 'account.dart';
 import 'home_tab.dart';
@@ -78,15 +81,16 @@ class HomeShellState extends State<HomeShell> {
     deferredMoreTab(),
   ];
 
-  // One entry per bottom-nav button: (icon when not selected, icon when
-  // selected, label). These are Dart "records", unpacked in _navItem with
-  // `final (outline, filled, label) = _items[i];`.
+  // One entry per nav button: (icon, label). These are Dart "records",
+  // unpacked in _navItem with `final (icon, label) = _items[i];`. The
+  // icons (widgets/nav_icons.dart) are solid blue when selected and a
+  // gray outline when not. No highlight pill behind the selected tab.
   static const _items = [
-    (Icons.home_outlined, Icons.home_rounded, 'Home'),
-    (Icons.map_outlined, Icons.map_rounded, 'Map'),
-    (Icons.notifications_none_rounded, Icons.notifications_rounded, 'Alerts'),
-    (Icons.support_outlined, Icons.support_rounded, 'Assistance'),
-    (Icons.grid_view_outlined, Icons.grid_view_rounded, 'More'),
+    (NavIcons.home, 'Home'),
+    (NavIcons.map, 'Map'),
+    (NavIcons.alerts, 'Alerts'),
+    (NavIcons.assistance, 'Assistance'),
+    (NavIcons.more, 'More'),
   ];
 
   // All opened tabs are stacked on top of each other, and only the active
@@ -218,19 +222,7 @@ class HomeShellState extends State<HomeShell> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                _roundButton(
-                  c,
-                  icon: c.isDark
-                      ? Icons.light_mode_rounded
-                      : Icons.dark_mode_rounded,
-                  tooltip: c.isDark
-                      ? 'Switch to light mode'
-                      : 'Switch to dark mode',
-                  color: c.isDark ? kLogoYellow : kSkyBlue,
-                  onTap: () => themeNotifier.value = c.isDark
-                      ? ThemeMode.light
-                      : ThemeMode.dark,
-                ),
+                _themeButton(c),
                 Container(
                   width: 1,
                   height: 24,
@@ -250,11 +242,11 @@ class HomeShellState extends State<HomeShell> {
   }
 
   Widget _webNavItem(AppColors c, int i, bool selected, bool compact) {
-    final (outline, filled, label) = _items[i];
+    final (navIcon, label) = _items[i];
     final fg = selected
         ? (c.isDark ? kSkyBlueLight : kSkyBlue)
         : c.textSecondary;
-    Widget icon = Icon(selected ? filled : outline, color: fg, size: 20);
+    Widget icon = NavIcon(navIcon, filled: selected, color: fg, size: 21);
     // Unread dot on Alerts, like the phone's bottom nav.
     if (i == 2) {
       icon = ValueListenableBuilder<Set<String>>(
@@ -269,9 +261,7 @@ class HomeShellState extends State<HomeShell> {
       );
     }
     final item = Material(
-      color: selected
-          ? kSkyBlue.withValues(alpha: c.isDark ? 0.18 : 0.10)
-          : Colors.transparent,
+      color: Colors.transparent,
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         borderRadius: BorderRadius.circular(10),
@@ -367,21 +357,27 @@ class HomeShellState extends State<HomeShell> {
             ),
           ),
           const SizedBox(width: 8),
-          _roundButton(
-            c,
-            icon: c.isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
-            tooltip: c.isDark ? 'Switch to light mode' : 'Switch to dark mode',
-            color: c.isDark ? kLogoYellow : kSkyBlue,
-            // Changing themeNotifier.value makes the ValueListenableBuilder
-            // in main.dart rebuild MaterialApp with the other theme.
-            onTap: () => themeNotifier.value = c.isDark
-                ? ThemeMode.light
-                : ThemeMode.dark,
-          ),
+          _themeButton(c),
         ],
       ),
     );
   }
+
+  // The light/dark button: a sun in the dark theme, a moon in the light
+  // one, morphing into each other (widgets/sun_moon_icon.dart).
+  // setThemeMode (widgets/theme_reveal.dart) switches the theme with a
+  // circle that spreads out from this button.
+  Widget _themeButton(AppColors c) => _roundButton(
+    c,
+    icon: Icons.dark_mode_rounded,
+    tooltip: c.isDark ? 'Switch to light mode' : 'Switch to dark mode',
+    onTap: () => setThemeMode(c.isDark ? ThemeMode.light : ThemeMode.dark),
+    child: SunMoonIcon(
+      moon: !c.isDark,
+      sunColor: kLogoYellow,
+      moonColor: kSkyBlue,
+    ),
+  );
 
   Widget _roundButton(
     AppColors c, {
@@ -390,6 +386,7 @@ class HomeShellState extends State<HomeShell> {
     required VoidCallback onTap,
     Color? color,
     int badge = 0,
+    Widget? child, // drawn instead of [icon] when given
   }) {
     return Tooltip(
       message: tooltip,
@@ -410,19 +407,22 @@ class HomeShellState extends State<HomeShell> {
               // the child counts as "changed" when its key changes. That's
               // why the Icon has key: ValueKey(icon): switching sun <-> moon
               // spins/fades the old icon out and the new one in.
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 350),
-                transitionBuilder: (child, anim) => RotationTransition(
-                  turns: Tween(begin: 0.6, end: 1.0).animate(anim),
-                  child: FadeTransition(opacity: anim, child: child),
-                ),
-                child: Icon(
-                  icon,
-                  key: ValueKey(icon),
-                  color: color ?? c.textPrimary,
-                  size: 21,
-                ),
-              ),
+              alignment: Alignment.center,
+              child:
+                  child ??
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 350),
+                    transitionBuilder: (child, anim) => RotationTransition(
+                      turns: Tween(begin: 0.6, end: 1.0).animate(anim),
+                      child: FadeTransition(opacity: anim, child: child),
+                    ),
+                    child: Icon(
+                      icon,
+                      key: ValueKey(icon),
+                      color: color ?? c.textPrimary,
+                      size: 21,
+                    ),
+                  ),
             ),
             if (badge > 0)
               Positioned(
@@ -479,47 +479,13 @@ class HomeShellState extends State<HomeShell> {
               ),
             ],
           ),
-          // LayoutBuilder tells us how wide the bar actually is, so we can
-          // work out where each button sits: 5 equal slots, each itemWidth
-          // wide, and tab i starts at x = itemWidth * i.
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final itemWidth = constraints.maxWidth / _items.length;
-              return Stack(
-                children: [
-                  // Sliding highlight behind the selected tab. When _index
-                  // changes, AnimatedPositioned slides it from the old
-                  // `left` to the new one. "+ 8" and "- 16" leave an 8 px
-                  // gap on each side of the pill. easeOutBack = it
-                  // overshoots slightly, then settles.
-                  AnimatedPositioned(
-                    duration: const Duration(milliseconds: 380),
-                    curve: Curves.easeOutBack,
-                    left: itemWidth * _index + 8,
-                    top: 8,
-                    bottom: 8,
-                    width: itemWidth - 16,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            kSkyBlue.withValues(alpha: 0.25),
-                            kLogoCyan.withValues(alpha: 0.18),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                    ),
-                  ),
-                  Row(
-                    children: [
-                      for (var i = 0; i < _items.length; i++)
-                        Expanded(child: _navItem(c, i)),
-                    ],
-                  ),
-                ],
-              );
-            },
+          // 5 equal slots. The selected one shows by its solid blue icon
+          // and label; there's no pill behind it.
+          child: Row(
+            children: [
+              for (var i = 0; i < _items.length; i++)
+                Expanded(child: _navItem(c, i)),
+            ],
           ),
         ),
       ),
@@ -528,8 +494,10 @@ class HomeShellState extends State<HomeShell> {
 
   Widget _navItem(AppColors c, int i) {
     final selected = i == _index;
-    final (outline, filled, label) = _items[i];
-    final color = selected ? c.accent : c.textSecondary;
+    final (navIcon, label) = _items[i];
+    final color = selected
+        ? (c.isDark ? kSkyBlueLight : kSkyBlue)
+        : c.textSecondary;
     // Semantics describes the button for screen readers (used by blind
     // users): "Map, button, selected". The icon alone doesn't say that.
     return Semantics(
@@ -550,10 +518,11 @@ class HomeShellState extends State<HomeShell> {
                   AnimatedScale(
                     scale: selected ? 1.12 : 1,
                     duration: const Duration(milliseconds: 250),
-                    child: Icon(
-                      selected ? filled : outline,
+                    child: NavIcon(
+                      navIcon,
+                      filled: selected,
                       color: color,
-                      size: 23,
+                      size: 24,
                     ),
                   ),
                   // Tab 2 (Alerts) gets a small red dot while there are

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../theme.dart';
+import '../widgets/duo_icons.dart';
 
 /// ============================================================
 /// DEMO DATA — all made-up numbers live here, so a real data
@@ -79,10 +80,10 @@ const Map<String, LatLng> kBarangayPoints = {
 const String kFloodPhotoCredit =
     'Sample photo · Apalit, Pampanga, 2023 · E911a, CC BY-SA 4.0';
 
-/// A real photo of a local place, from Wikimedia Commons. [credit] must be
-/// shown wherever the photo is (the licenses require it), and all of them
-/// are listed on the About screen. Swap in the group's own photos later
-/// by replacing the files (keep the names) and updating the credits.
+/// A real photo of a local place. Wikimedia Commons photos have a [credit]
+/// that must be shown wherever the photo is (the licenses require it), and
+/// they're all listed on the About screen. The team's own photos have an
+/// empty credit: no label on the photo, not listed on About.
 class LocalPhoto {
   final String asset;
   final String place;
@@ -90,10 +91,17 @@ class LocalPhoto {
   const LocalPhoto(this.asset, this.place, this.credit);
 }
 
-const kPhotoSacobia = LocalPhoto(
-  'assets/images/photo_sacobia_river.jpg',
-  'Sacobia River and Mt. Arayat, seen from Bamban',
-  'Ralff Nestor Nacor, CC BY-SA 4.0',
+/// The Home banner: the night photo in the dark theme, the day photo in
+/// the light theme. Both taken by Adrian, so no credit line.
+const kPhotoRainyNight = LocalPhoto(
+  'assets/images/photo_rainy_night.jpg',
+  'A rainy night on the street',
+  '',
+);
+const kPhotoRainyDay = LocalPhoto(
+  'assets/images/photo_rainy_day.jpg',
+  'A jeepney on a rainy street',
+  '',
 );
 const kPhotoSunset = LocalPhoto(
   'assets/images/photo_sunset.jpg',
@@ -111,7 +119,8 @@ const kPhotoMabuhayArch = LocalPhoto(
   'P199, CC BY-SA 3.0',
 );
 const List<LocalPhoto> kLocalPhotos = [
-  kPhotoSacobia,
+  kPhotoRainyNight,
+  kPhotoRainyDay,
   kPhotoSunset,
   kPhotoDauBridge,
   kPhotoMabuhayArch,
@@ -292,8 +301,6 @@ class EvacuationCenter {
   final String name;
   final String barangay;
   final LatLng point;
-  final int capacity;
-  final int occupants;
   final bool open;
   final double distanceKm;
   final IconData icon;
@@ -302,15 +309,11 @@ class EvacuationCenter {
     this.name,
     this.barangay,
     this.point,
-    this.capacity,
-    this.occupants,
     this.open,
     this.distanceKm,
     this.icon,
     this.image,
   );
-
-  double get fill => occupants / capacity;
 }
 
 const List<EvacuationCenter> kEvacCenters = [
@@ -318,8 +321,6 @@ const List<EvacuationCenter> kEvacCenters = [
     'Mabalacat City Sports Complex',
     'Mabiga',
     LatLng(15.2100, 120.5760),
-    500,
-    186,
     true,
     2.1,
     Icons.stadium_rounded,
@@ -329,8 +330,6 @@ const List<EvacuationCenter> kEvacCenters = [
     'Mabalacat City Hall Grounds',
     'Poblacion',
     LatLng(15.2230, 120.5735),
-    350,
-    92,
     true,
     3.0,
     Icons.account_balance_rounded,
@@ -340,8 +339,6 @@ const List<EvacuationCenter> kEvacCenters = [
     'Dau Elementary School',
     'Dau',
     LatLng(15.1790, 120.5860),
-    280,
-    241,
     true,
     1.4,
     Icons.school_rounded,
@@ -351,8 +348,6 @@ const List<EvacuationCenter> kEvacCenters = [
     'Dolores Covered Court',
     'Dolores',
     LatLng(15.2150, 120.5600),
-    200,
-    0,
     false,
     3.6,
     Icons.home_work_rounded,
@@ -509,35 +504,46 @@ const int kMyDownVotesReceived = 6;
 class Hotline {
   final String name;
   final String number;
-  final IconData icon;
-  final Color color;
+  final DuoIcons icon;
+  final Color color; // tints the "Call ...?" dialog
   const Hotline(this.name, this.number, this.icon, this.color);
 }
 
+/// Official Mabalacat City emergency numbers (from the city's own hotline
+/// list), plus 911 and City Hall. The police have two numbers, so they get
+/// two rows. Keep the landing page's list (landing/index.html, 02
+/// Hotlines) the same.
 const List<Hotline> kHotlines = [
+  Hotline('National Emergency Hotline', '911', DuoIcons.phone, kDanger),
+  Hotline('Mabalacat CDRRMO', '0998-999-4357', DuoIcons.shield, kSkyBlue),
   Hotline(
-    'National Emergency Hotline',
-    '911',
-    Icons.phone_in_talk_rounded,
-    kDanger,
-  ),
-  Hotline('Mabalacat CDRRMO', '0998-999-4357', Icons.shield_rounded, kSkyBlue),
-  Hotline(
-    'Bureau of Fire Protection',
+    'Bureau of Fire Protection (BFP)',
     '0933-990-9960',
-    Icons.local_fire_department_rounded,
+    DuoIcons.fire,
     Color(0xFFF97316),
   ),
   Hotline(
     'Mabalacat Police (PNP)',
-    '0998-598-5458',
-    Icons.local_police_rounded,
+    '0948-552-4384',
+    DuoIcons.police,
     Color(0xFF6366F1),
+  ),
+  Hotline(
+    'Mabalacat Police (PNP), 2nd line',
+    '0998-598-5458',
+    DuoIcons.police,
+    Color(0xFF6366F1),
+  ),
+  Hotline(
+    'Traffic Enforcement (MCTEG)',
+    '0936-073-8704',
+    DuoIcons.traffic,
+    Color(0xFFEAB308),
   ),
   Hotline(
     'Mabalacat City Hall',
     '(045) 649-8620',
-    Icons.account_balance_rounded,
+    DuoIcons.cityHall,
     Color(0xFF14B8A6),
   ),
 ];

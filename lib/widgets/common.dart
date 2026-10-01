@@ -152,35 +152,36 @@ class LocalPhotoView extends StatelessWidget {
               errorBuilder: (_, _, _) => const SizedBox.shrink(),
             ),
             ?overlay,
-            Positioned(
-              right: 8,
-              bottom: 8,
-              child: Tooltip(
-                message: '${photo.place} · ${photo.credit}',
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 7,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.45),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    showPlace
-                        ? '${photo.place} · ${photo.credit}'
-                        : photo.credit,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w600,
+            if (photo.credit.isNotEmpty)
+              Positioned(
+                right: 8,
+                bottom: 8,
+                child: Tooltip(
+                  message: '${photo.place} · ${photo.credit}',
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.45),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      showPlace
+                          ? '${photo.place} · ${photo.credit}'
+                          : photo.credit,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
           ],
         ),
       ),
