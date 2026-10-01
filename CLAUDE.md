@@ -124,10 +124,9 @@ screenshot — use a branch for risky changes.
   the status bar left out; the page draws its own), slightly blurred on
   purpose. Retake them when the Home or Map tab changes visibly.
   Desktop keeps text-left/phones-right; at 1023px and below (one-column,
-  `.hero-grid`'s `grid-template-areas` in landing.css) the phones come
-  first, above the headline (Adrian's call — mobile only). The store
-  buttons still come after the greeting, same relative order as desktop
-  — not above the headline: `index.html` has a second copy of the two
+  `.hero-grid`'s `grid-template-areas` in landing.css) the order is
+  headline + greeting, then the phone, then the store buttons (Adrian's
+  call — mobile only): `index.html` has a second copy of the two
   buttons (`.stores.stores-mobile`, same `.store` class so `landing.js`
   wires both for free) right after `.stage-wrap` in the DOM, placed into
   the `storesm` grid area, which `.hero-grid`'s mobile
