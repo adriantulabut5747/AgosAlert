@@ -123,6 +123,17 @@ screenshot — use a branch for risky changes.
   `landing/img/{home,map}-{dark,light}.webp` (390 wide at 2x, taken with
   the status bar left out; the page draws its own), slightly blurred on
   purpose. Retake them when the Home or Map tab changes visibly.
+  Desktop keeps text-left/phones-right; at 1023px and below (one-column,
+  `.hero-grid`'s `grid-template-areas` in landing.css) the phones come
+  first, above the headline (Adrian's call — mobile only). The store
+  buttons still come after the greeting, same relative order as desktop
+  — not above the headline: `index.html` has a second copy of the two
+  buttons (`.stores.stores-mobile`, same `.store` class so `landing.js`
+  wires both for free) right after `.stage-wrap` in the DOM, placed into
+  the `storesm` grid area, which `.hero-grid`'s mobile
+  `grid-template-areas` puts after `copy`. The original stays in `.copy`
+  for desktop. CSS shows exactly one of the two per breakpoint — never
+  edit one without the other.
 - The weather card and flood outlook chip popping out of the front phone
   are live (Open-Meteo, same request and rules as weather.dart, ported to
   landing.js). So are the numbers in "How it works" cards 1-2. Keep the
@@ -156,6 +167,10 @@ screenshot — use a branch for risky changes.
   source, look at the actual image, not just the HTTP status.
 - The Map tab is locked to `kMabalacatBounds` (demo_data.dart) with a
   minimum zoom of 13. A test checks that it can't be dragged outside.
+- Map tab's floating layout (`_floatingLayout` in map_tab.dart) only has
+  side margins and rounded top corners on tablets (`wide: true`). On
+  phones it's edge to edge with square top corners, flush against the
+  top bar (Adrian's call).
 - In the dark theme, the dark-navy "alert" in the logos is hard to read.
   Adrian chose to keep it as-is.
 

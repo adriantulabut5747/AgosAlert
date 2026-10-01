@@ -195,6 +195,29 @@
           </div>
         </div>
 
+        <!-- Mobile only (landing.css, "Mobile: store buttons under the
+             phone"): the same two buttons as .stores above, placed right
+             under the phone instead of under the headline. Desktop hides
+             this copy and shows the one in .copy; querySelectorAll('.store')
+             in landing.js wires up both without extra JS. -->
+        <div class="stores stores-mobile">
+          <button class="store" type="button" data-store="Android">
+            <svg viewBox="0 0 24 26" width="22" height="24" aria-hidden="true">
+              <path fill="#00D7FE" d="M1.2.6C.9.9.8 1.4.8 2v22c0 .6.1 1.1.4 1.4L13.3 13.3z"/>
+              <path fill="#FFCE00" d="M17.3 17.4 13.3 13.3l4-4 4.8 2.7c1.4.8 1.4 2.1 0 2.9z"/>
+              <path fill="#FF3A44" d="M17.3 17.4 13.3 13.3 1.2 25.4c.4.5 1.2.5 2 .1z"/>
+              <path fill="#00F076" d="M17.3 9.3 3.2 1.2c-.8-.5-1.6-.4-2 .1l12.1 12.1z"/>
+            </svg>
+            <span class="store-text"><small>Coming soon on</small>Google Play</span>
+          </button>
+          <button class="store" type="button" data-store="iPhone">
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+              <path fill="currentColor" d="M16.4 12.6c0-2.4 2-3.6 2.1-3.7-1.1-1.7-2.9-1.9-3.5-1.9-1.5-.2-2.9.9-3.7.9-.8 0-1.9-.8-3.2-.8-1.6 0-3.1 1-4 2.4-1.7 3-.4 7.4 1.2 9.8.8 1.2 1.8 2.5 3 2.4 1.2 0 1.7-.8 3.1-.8 1.5 0 1.9.8 3.2.8 1.3 0 2.1-1.2 2.9-2.4.9-1.3 1.3-2.7 1.3-2.8 0 0-2.4-1-2.4-3.9zM14 5.4c.7-.8 1.1-1.9 1-3-1 0-2.1.7-2.8 1.5-.6.7-1.2 1.8-1 2.9 1.1.1 2.1-.6 2.8-1.4z"/>
+            </svg>
+            <span class="store-text"><small>Coming soon on the</small>App Store</span>
+          </button>
+        </div>
+
         <!-- Honest stand-in for the reference's award badge. -->
         <aside class="notice">
           <span class="ms notice-icon" aria-hidden="true">info</span>
@@ -222,7 +245,7 @@
           <li class="how-card reveal">
             <p class="how-step">Step 01</p>
             <h3>We read the sky</h3>
-            <p>Every 15 minutes, AgosAlert asks Open-Meteo for Mabalacat's forecast: the chance of rain today, how many millimeters are expected, and the weather code, which tells a light shower from a thunderstorm.</p>
+            <p>Every 15 minutes, AgosAlert checks Mabalacat's rain chance, expected rainfall, and weather code from Open-Meteo.</p>
             <div class="how-visual readings" aria-live="polite">
               <div class="reading"><span>Rain chance today</span><b id="hwChance">--</b></div>
               <div class="reading"><span>Rain expected today</span><b id="hwSum">--</b></div>
@@ -234,7 +257,7 @@
           <li class="how-card reveal">
             <p class="how-step">Step 02</p>
             <h3>Rain becomes a risk level</h3>
-            <p>The app checks those numbers against three rules, from worst to best. The first rule that matches is the flood outlook you see on the Home tab. It's an estimate, not an official warning.</p>
+            <p>Three rules, worst to best, turn those numbers into the flood outlook on Home. It's an estimate, not an official warning.</p>
             <div class="how-visual rules">
               <div class="rule" data-level="high"><span class="rule-dot"></span><b>High</b><span>30 mm or more, or a thunderstorm with a 60%+ chance</span></div>
               <div class="rule" data-level="moderate"><span class="rule-dot"></span><b>Moderate</b><span>10 mm or more, or a 70%+ chance of rain</span></div>
@@ -245,7 +268,7 @@
           <li class="how-card reveal">
             <p class="how-step">Step 03</p>
             <h3>Neighbors report the water</h3>
-            <p>Anyone logged in can report a flood: pick the barangay, add a photo, and set how deep the water is, from ankle-deep to over the head. The report becomes a pin on the map, and other people vote on whether it's accurate.</p>
+            <p>Anyone logged in can report a flood: barangay, photo, and water depth. It becomes a map pin that others vote on.</p>
             <div class="how-visual lifecycle">
               <ol class="life">
                 <li><span class="ms" aria-hidden="true">photo_camera</span><b>Reported</b><small>Day 0</small></li>
@@ -260,7 +283,7 @@
           <li class="how-card reveal">
             <p class="how-step">Step 04</p>
             <h3>You get help</h3>
-            <p>The Assistance tab keeps help one tap away. Press and hold SOS to call for help or request a rescue, find the nearest open evacuation center with directions, or call a hotline.</p>
+            <p>The Assistance tab keeps help one tap away: SOS, the nearest evacuation center, or a hotline call.</p>
             <div class="how-visual helps">
               <span class="help sos">SOS<small>Press and hold</small></span>
               <span class="help"><span class="ms" aria-hidden="true">home_work</span>Evacuation centers</span>

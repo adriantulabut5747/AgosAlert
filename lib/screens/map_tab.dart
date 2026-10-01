@@ -207,10 +207,15 @@ class _MapTabState extends State<MapTab> {
   }
 
   Widget _floatingLayout(AppColors c, {required bool wide}) {
+    // Tablets: the map floats as a card, with side margins and rounded
+    // top corners. Phones: edge to edge, flush against the top bar above
+    // it, no side margins and no top corners (Adrian's call).
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+      padding: EdgeInsets.fromLTRB(wide ? 12 : 0, 4, wide ? 12 : 0, 0),
       child: ClipRRect(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: wide
+            ? const BorderRadius.vertical(top: Radius.circular(28))
+            : BorderRadius.zero,
         child: Stack(
           children: [
             _mapView(c),

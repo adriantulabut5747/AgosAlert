@@ -272,6 +272,9 @@ h1 .accent { color: var(--accent); }
 
 /* "Coming soon" store buttons. Always black, like the real badges. */
 .stores { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 34px; }
+/* The duplicate under the phone (index.html, "Mobile only"); shown only
+   in the mobile layout below. */
+.stores.stores-mobile { display: none; }
 .store {
   display: inline-flex; align-items: center; gap: 11px;
   height: 56px; padding: 0 20px 0 15px;
@@ -1044,12 +1047,19 @@ a.help:hover { box-shadow: inset 0 0 0 1.5px var(--accent); }
   .hero-grid {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: none;
-    grid-template-areas: "copy" "stage" "cov" "notice";
+    /* Phone first, then the headline + greeting, then the store buttons
+       (Adrian asked for the mockup above the text, and the store buttons
+       below the greeting — not above the headline — on mobile only;
+       desktop keeps text-left, phones-right, buttons under the greeting
+       same as always). */
+    grid-template-areas: "stage" "copy" "storesm" "cov" "notice";
   }
   /* Back in the normal stacked flow: no lining up with the phone. */
   .copy, .coverage { position: relative; top: auto; bottom: auto; }
-  .copy { grid-area: copy; padding-top: 48px; }
-  .stage-wrap { min-height: calc(var(--phone) * 2.35); margin-top: 20px; }
+  .copy { grid-area: copy; padding-top: 28px; }
+  .copy .stores { display: none; }
+  .stores.stores-mobile { display: flex; grid-area: storesm; margin-top: 8px; }
+  .stage-wrap { min-height: calc(var(--phone) * 2.35); margin-top: 8px; }
   .device.back { display: none; }
   .device.front { left: calc(50% - var(--pw) * .35); top: 6%; }
   .coverage { grid-area: cov; width: 100%; max-width: none; margin-top: 8px; }
