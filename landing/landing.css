@@ -1047,16 +1047,16 @@ a.help:hover { box-shadow: inset 0 0 0 1.5px var(--accent); }
   .hero-grid {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: none;
-    /* Mobile order (Adrian's call): headline + greeting, then the phone,
-       then the store buttons. Desktop keeps text-left, phones-right,
+    /* Mobile order (Adrian's call): headline + greeting, then the store
+       buttons, then the phone. Desktop keeps text-left, phones-right,
        buttons under the greeting same as always. */
-    grid-template-areas: "copy" "stage" "storesm" "cov" "notice";
+    grid-template-areas: "copy" "storesm" "stage" "cov" "notice";
   }
   /* Back in the normal stacked flow: no lining up with the phone. */
   .copy, .coverage { position: relative; top: auto; bottom: auto; }
   .copy { grid-area: copy; padding-top: 48px; }
   .copy .stores { display: none; }
-  .stores.stores-mobile { display: flex; grid-area: storesm; margin-top: 8px; }
+  .stores.stores-mobile { display: flex; grid-area: storesm; margin-top: 26px; }
   .stage-wrap { min-height: calc(var(--phone) * 2.35); margin-top: 8px; }
   .device.back { display: none; }
   .device.front { left: calc(50% - var(--pw) * .35); top: 6%; }
@@ -1080,7 +1080,9 @@ a.help:hover { box-shadow: inset 0 0 0 1.5px var(--accent); }
   .guest-short { display: inline; }
   .copy { padding-top: 36px; }
   h1 { font-size: clamp(32px, 9.2vw, 40px); }
-  .greeting { font-size: 15.5px; margin-top: 16px; }
+  /* One line only (Adrian's call): shrinks with the screen so the longest
+     greeting ("Mayap a gatpanapun! Good afternoon, ...") still fits. */
+  .greeting { font-size: min(15.5px, 3.45vw); white-space: nowrap; margin-top: 16px; }
   .stores { margin-top: 26px; gap: 10px; }
   .store { flex: 1 1 0; min-width: 0; padding: 0 12px; gap: 9px; height: 54px; }
   .store-text { font-size: 15px; }

@@ -125,7 +125,7 @@ screenshot — use a branch for risky changes.
   purpose. Retake them when the Home or Map tab changes visibly.
   Desktop keeps text-left/phones-right; at 1023px and below (one-column,
   `.hero-grid`'s `grid-template-areas` in landing.css) the order is
-  headline + greeting, then the phone, then the store buttons (Adrian's
+  headline + greeting (forced to one line), then the store buttons, then the phone (Adrian's
   call — mobile only): `index.html` has a second copy of the two
   buttons (`.stores.stores-mobile`, same `.store` class so `landing.js`
   wires both for free) right after `.stage-wrap` in the DOM, placed into
