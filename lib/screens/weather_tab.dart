@@ -125,7 +125,10 @@ class _WeatherTabState extends State<WeatherTab> {
                     ),
                     120,
                   );
-                  final rain = part(RainTotalsCard(weather: w), 160);
+                  // Only Open-Meteo sends the past 24 hours the card is built on.
+                  final rain = w.pastRain.isEmpty
+                      ? const SizedBox.shrink()
+                      : part(RainTotalsCard(weather: w), 160);
                   final ops = part(const FloodOpsCard(), 200);
                   final days = part(_DaysCard(weather: w), 120);
                   const greeting = FadeSlideIn(child: _Greeting());
@@ -160,13 +163,17 @@ class _WeatherTabState extends State<WeatherTab> {
                 },
               ),
               const SizedBox(height: 24),
-              Center(
-                child: Text(
-                  'Weather by Open-Meteo · Sections marked SAMPLE use demo data · Unofficial demo',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: c.textSecondary.withValues(alpha: 0.8),
-                    fontSize: 11,
+              // Names whichever service answered (a backup when Open-Meteo is down).
+              FutureBuilder<MabalacatWeather>(
+                future: _weather,
+                builder: (context, snap) => Center(
+                  child: Text(
+                    'Weather by ${snap.data?.source ?? 'Open-Meteo'} · Sections marked SAMPLE use demo data · Unofficial demo',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: c.textSecondary.withValues(alpha: 0.8),
+                      fontSize: 11,
+                    ),
                   ),
                 ),
               ),
@@ -561,11 +568,12 @@ class _NowReadout extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             spacing: 8,
             children: [
-              _stacked(
-                CupertinoIcons.umbrella_fill,
-                '${h.rainChance}%',
-                'Rain chance',
-              ),
+              if (h.rainChance != null)
+                _stacked(
+                  CupertinoIcons.umbrella_fill,
+                  '${h.rainChance}%',
+                  'Rain chance',
+                ),
               _stacked(
                 CupertinoIcons.drop_fill,
                 '${h.rain.toStringAsFixed(1)} mm',
@@ -585,11 +593,12 @@ class _NowReadout extends StatelessWidget {
             ),
             child: Row(
               children: [
-                _stat(
-                  CupertinoIcons.umbrella_fill,
-                  '${h.rainChance}%',
-                  'Rain chance',
-                ),
+                if (h.rainChance != null)
+                  _stat(
+                    CupertinoIcons.umbrella_fill,
+                    '${h.rainChance}%',
+                    'Rain chance',
+                  ),
                 _stat(
                   CupertinoIcons.drop_fill,
                   '${h.rain.toStringAsFixed(1)} mm',
@@ -716,7 +725,9 @@ class _DaysCard extends StatelessWidget {
                   SizedBox(
                     width: 46,
                     child: Text(
-                      days[i].rainChance >= 20 ? '${days[i].rainChance}%' : '',
+                      (days[i].rainChance ?? 0) >= 20
+                          ? '${days[i].rainChance}%'
+                          : '',
                       textAlign: TextAlign.right,
                       style: TextStyle(
                         color: c.readable(const Color(0xFF40C8FF)),

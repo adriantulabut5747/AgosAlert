@@ -49,7 +49,7 @@ bool reportMatches(FloodReport z, String query) {
   ].any((t) => t.toLowerCase().contains(q));
 }
 
-enum _Sort { newest, helpful, deepest }
+enum _Sort { newest, oldest, liked, disliked, deepest }
 
 class _ReportsTabState extends State<ReportsTab> {
   final _search = TextEditingController();
@@ -92,17 +92,22 @@ class _ReportsTabState extends State<ReportsTab> {
           (!_mineOnly || z.barangay == barangay) &&
           (!_verifiedOnly || z.status == 'verified');
     }).toList();
-    switch (_sort) {
-      case _Sort.newest:
-        list.sort((a, b) => a.photoAge.compareTo(b.photoAge));
-      case _Sort.helpful:
-        list.sort(
-          (a, b) =>
-              (b.upVotes - b.downVotes).compareTo(a.upVotes - a.downVotes),
-        );
-      case _Sort.deepest:
-        list.sort((a, b) => b.depth.compareTo(a.depth));
+    // Posting time, not photo time: a new post with an older photo still
+    // goes on top. Every other sort breaks ties newest first.
+    int newest(FloodReport a, FloodReport b) =>
+        b.createdAt.compareTo(a.createdAt);
+    int by(num Function(FloodReport) key, FloodReport a, FloodReport b) {
+      final d = key(b).compareTo(key(a));
+      return d != 0 ? d : newest(a, b);
     }
+
+    list.sort(switch (_sort) {
+      _Sort.newest => newest,
+      _Sort.oldest => (a, b) => newest(b, a),
+      _Sort.liked => (a, b) => by((z) => z.upVotes, a, b),
+      _Sort.disliked => (a, b) => by((z) => z.downVotes, a, b),
+      _Sort.deepest => (a, b) => by((z) => z.depth, a, b),
+    });
     return list;
   }
 
@@ -279,7 +284,9 @@ class _ReportsTabState extends State<ReportsTab> {
         group('Sort by', [
           for (final (s, label) in [
             (_Sort.newest, 'Newest'),
-            (_Sort.helpful, 'Most helpful'),
+            (_Sort.oldest, 'Oldest'),
+            (_Sort.liked, 'Most liked'),
+            (_Sort.disliked, 'Most disliked'),
             (_Sort.deepest, 'Deepest'),
           ])
             SelectChip(

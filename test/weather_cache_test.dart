@@ -13,8 +13,9 @@ void main() {
   test('weather is downloaded once and shared', () async {
     var requests = 0;
     var fail = true; // the first request fails
-    final client = MockClient((_) async {
-      requests++;
+    final client = MockClient((req) async {
+      // Count Open-Meteo only: a failure also asks the two backups.
+      if (req.url.host == 'api.open-meteo.com') requests++;
       if (fail) return http.Response('oops', 500);
       return http.Response(
         _json,

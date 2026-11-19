@@ -284,137 +284,142 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560),
-          child: ListView(
+          // Not a ListView: it drops parts scrolled far off screen, and then
+          // _trySubmit has nothing to scroll back up to.
+          child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-            children: [
-              Text(
-                'Help your neighbors by reporting what you see.',
-                style: TextStyle(color: c.textSecondary, fontSize: 13),
-              ),
-              const SizedBox(height: 20),
-              _Attention(
-                key: _typeKey,
-                nudge: _nudge,
-                hint: _hintFor(_typeKey),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const FieldLabel('What happened?'),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        for (final (icon, label) in kIncidentTypes)
-                          SelectChip(
-                            label: label,
-                            icon: icon,
-                            selected: _type == label,
-                            onTap: () => setState(() => _type = label),
-                          ),
-                      ],
-                    ),
-                  ],
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Help your neighbors by reporting what you see.',
+                  style: TextStyle(color: c.textSecondary, fontSize: 13),
                 ),
-              ),
-              // AnimatedSize: the depth card slides open/closed instead of
-              // popping in when the type changes.
-              AnimatedSize(
-                duration: const Duration(milliseconds: 260),
-                curve: Curves.easeOutCubic,
-                alignment: Alignment.topCenter,
-                child: _asksDepth
-                    ? Padding(
-                        padding: const EdgeInsets.only(top: 22),
-                        child: _depthCard(c),
-                      )
-                    : const SizedBox(width: double.infinity),
-              ),
-              const SizedBox(height: 22),
-              const FieldLabel('How serious is it?'),
-              _severityBar(c),
-              if (_asksDepth && _depthCm != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(
-                    'Set from the water depth. Tap to change it.',
-                    style: TextStyle(color: c.textSecondary, fontSize: 12),
+                const SizedBox(height: 20),
+                _Attention(
+                  key: _typeKey,
+                  nudge: _nudge,
+                  hint: _hintFor(_typeKey),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const FieldLabel('What happened?'),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final (icon, label) in kIncidentTypes)
+                            SelectChip(
+                              label: label,
+                              icon: icon,
+                              selected: _type == label,
+                              onTap: () => setState(() => _type = label),
+                            ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-              const SizedBox(height: 22),
-              const FieldLabel('Photo (optional, but it helps)'),
-              _photoBox(c),
-              if (_photoTakenAt != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(
-                    'Taken ${formatDate(_photoTakenAt!)}, ${formatTime(_photoTakenAt!)}. '
-                    'The report is removed 14 days after that.',
-                    style: TextStyle(color: c.textSecondary, fontSize: 12),
-                  ),
+                // AnimatedSize: the depth card slides open/closed instead of
+                // popping in when the type changes.
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 260),
+                  curve: Curves.easeOutCubic,
+                  alignment: Alignment.topCenter,
+                  child: _asksDepth
+                      ? Padding(
+                          padding: const EdgeInsets.only(top: 22),
+                          child: _depthCard(c),
+                        )
+                      : const SizedBox(width: double.infinity),
                 ),
-              const SizedBox(height: 22),
-              _Attention(
-                key: _whereKey,
-                nudge: _nudge,
-                hint: _hintFor(_whereKey),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [const FieldLabel('Where?'), _wherePreview(c)],
-                ),
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
+                const SizedBox(height: 22),
+                const FieldLabel('How serious is it?'),
+                _severityBar(c),
+                if (_asksDepth && _depthCm != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
                     child: Text(
-                      _placed
-                          ? 'Pin set. Tap the map to move it.'
-                          : 'Tap the map to drop the pin on the exact spot.',
+                      'Set from the water depth. Tap to change it.',
                       style: TextStyle(color: c.textSecondary, fontSize: 12),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  _locating
-                      ? const Padding(
-                          padding: EdgeInsets.all(8),
-                          child: CupertinoActivityIndicator(),
-                        )
-                      : TintedButton(
-                          label: 'Use my location',
-                          icon: CupertinoIcons.location_fill,
-                          onPressed: _useMyLocation,
-                        ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              // Fixes the barangay guess; the pin stays where it is. Before
-              // a pin is set, it also moves where the map opens.
-              BarangayDropdown(
-                value: _barangay,
-                onChanged: (v) {
-                  setState(() => _barangay = v);
-                  if (!_placed) {
-                    _point = kBarangayPoints[v] ?? kMabalacatCenter;
-                    _map.flyTo(_point, zoom: 15);
-                  }
-                },
-              ),
-              const SizedBox(height: 22),
-              const FieldLabel('Details (optional)'),
-              AppTextField(
-                controller: _note,
-                hint: 'e.g. Water is waist-deep near the chapel',
-                maxLines: 3,
-              ),
-              const SizedBox(height: 26),
-              // Always tappable: _trySubmit shows what's missing, if anything.
-              PrimaryButton(
-                label: 'Submit report',
-                icon: CupertinoIcons.paperplane_fill,
-                loading: _submitting,
-                onPressed: _trySubmit,
-              ),
-            ],
+                const SizedBox(height: 22),
+                const FieldLabel('Photo (optional, but it helps)'),
+                _photoBox(c),
+                if (_photoTakenAt != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      'Taken ${formatDate(_photoTakenAt!)}, ${formatTime(_photoTakenAt!)}. '
+                      'The report is removed 14 days after that.',
+                      style: TextStyle(color: c.textSecondary, fontSize: 12),
+                    ),
+                  ),
+                const SizedBox(height: 22),
+                _Attention(
+                  key: _whereKey,
+                  nudge: _nudge,
+                  hint: _hintFor(_whereKey),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [const FieldLabel('Where?'), _wherePreview(c)],
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _placed
+                            ? 'Pin set. Tap the map to move it.'
+                            : 'Tap the map to drop the pin on the exact spot.',
+                        style: TextStyle(color: c.textSecondary, fontSize: 12),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    _locating
+                        ? const Padding(
+                            padding: EdgeInsets.all(8),
+                            child: CupertinoActivityIndicator(),
+                          )
+                        : TintedButton(
+                            label: 'Use my location',
+                            icon: CupertinoIcons.location_fill,
+                            onPressed: _useMyLocation,
+                          ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                // Fixes the barangay guess; the pin stays where it is. Before
+                // a pin is set, it also moves where the map opens.
+                BarangayDropdown(
+                  value: _barangay,
+                  onChanged: (v) {
+                    setState(() => _barangay = v);
+                    if (!_placed) {
+                      _point = kBarangayPoints[v] ?? kMabalacatCenter;
+                      _map.flyTo(_point, zoom: 15);
+                    }
+                  },
+                ),
+                const SizedBox(height: 22),
+                const FieldLabel('Details (optional)'),
+                AppTextField(
+                  controller: _note,
+                  hint: 'e.g. Water is waist-deep near the chapel',
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 26),
+                // Always tappable: _trySubmit shows what's missing, if anything.
+                PrimaryButton(
+                  label: 'Submit report',
+                  icon: CupertinoIcons.paperplane_fill,
+                  loading: _submitting,
+                  onPressed: _trySubmit,
+                ),
+              ],
+            ),
           ),
         ),
       ),

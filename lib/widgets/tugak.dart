@@ -54,7 +54,10 @@ String tugakLine(MabalacatWeather w, {AppAlert? alert}) {
     return 'Rain from ${formatTime(start)}. Cross low streets before then, not after.';
   }
   // First hour later today that's more likely wet than dry.
-  final wetHour = w.hourly.skip(1).where((h) => h.rainChance >= 50).firstOrNull;
+  final wetHour = w.hourly
+      .skip(1)
+      .where((h) => (h.rainChance ?? 0) >= 50)
+      .firstOrNull;
   if (wetHour != null) {
     return 'Rain likely around ${formatHour(wetHour.time)}. Bring the umbrella, not the excuses.';
   }
@@ -72,7 +75,7 @@ const double kHeavyRainMm = 7.5;
 /// His mood for a forecast hour (the Weather tab's time scrubber).
 TugakMood tugakMoodAt(HourlyForecast h) {
   if (h.weatherCode >= 95 || h.rain >= kHeavyRainMm) return TugakMood.storm;
-  if (h.rain >= 0.1 || h.rainChance >= 50 || h.weatherCode >= 51) {
+  if (h.rain >= 0.1 || (h.rainChance ?? 0) >= 50 || h.weatherCode >= 51) {
     return TugakMood.rain;
   }
   return h.isDay ? TugakMood.fine : TugakMood.night;
@@ -92,8 +95,12 @@ String tugakLineAt(HourlyForecast h, {required bool serious}) {
   if (h.rain >= kModerateRainMm) {
     return '$t: steady rain, $mm mm. Leave before it or wait it out.';
   }
-  if (h.rain >= 0.1 || h.rainChance >= 50) {
-    return '$t: ${h.rainChance}% chance of rain. Take the umbrella${serious ? '.' : '. The big one.'}';
+  if (h.rain >= 0.1 || (h.rainChance ?? 0) >= 50) {
+    // MET Norway gives no chance: then just "light rain".
+    final what = h.rainChance == null
+        ? 'light rain'
+        : '${h.rainChance}% chance of rain';
+    return '$t: $what. Take the umbrella${serious ? '.' : '. The big one.'}';
   }
   if (serious) return '$t looks dry. Use it to move things to higher ground.';
   if (!h.isDay) return "$t looks dry. Sleep. I've got the watch.";

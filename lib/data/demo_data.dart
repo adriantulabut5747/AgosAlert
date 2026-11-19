@@ -339,7 +339,7 @@ const List<(String, String)> kGoBagItems = [
 const List<(String, String)> kFaqs = [
   (
     'Where does the weather data come from?',
-    'Live weather comes from Open-Meteo, a free weather service, using the coordinates of Mabalacat City.',
+    'Live weather comes from Open-Meteo, a free weather service, using the coordinates of Mabalacat City. If Open-Meteo is down, MET Norway and then wttr.in fill in, and the page says which one it is.',
   ),
   (
     'Is the flood outlook an official warning?',

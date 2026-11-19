@@ -6,17 +6,20 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import '../theme.dart';
+import 'weather_backups.dart';
 
 /// ============================================================
 /// LIVE WEATHER for Mabalacat City from Open-Meteo
 /// (https://open-meteo.com). Free, no API key, and it allows
-/// browser requests, so it works on Flutter web.
+/// browser requests, so it works on Flutter web. If it's down, MET
+/// Norway and then wttr.in fill in (weather_backups.dart); they send
+/// less, so the values they lack are null and their tiles hide.
 /// ============================================================
 
 class HourlyForecast {
   final DateTime time;
   final double temperature;
-  final int rainChance; // %
+  final int? rainChance; // %; null = the source doesn't give it
   final double rain; // mm expected in this hour
   final int weatherCode;
   final bool isDay;
@@ -27,7 +30,7 @@ class HourlyForecast {
   final double pressure; // hPa at sea level
   final int cloud; // % of the sky covered
   final double uv; // UV index
-  final double visibility; // meters
+  final double? visibility; // meters; null = the source doesn't give it
   const HourlyForecast(
     this.time,
     this.temperature,
@@ -50,7 +53,7 @@ class DailyForecast {
   final DateTime date;
   final double max;
   final double min;
-  final int rainChance; // %
+  final int? rainChance; // %; null = the source doesn't give it
   final double rainSum; // mm
   final int weatherCode;
   final DateTime sunrise;
@@ -71,30 +74,31 @@ class MabalacatWeather {
   final double temperature;
   final double feelsLike;
   final int humidity;
-  final double precipitation; // mm in the last 15 minutes
   final double windSpeed; // km/h
   final int weatherCode; // WMO code, see weatherInfo()
   final bool isDay;
   final int windDir; // degrees the wind comes FROM
-  final double gusts; // km/h
+  final double? gusts; // km/h; null = the source doesn't give it
   final double pressure; // hPa
   final int cloud; // %
   final double uv;
-  final double visibility; // meters
+  final double? visibility; // meters; null = the source doesn't give it
   final DateTime time; // local Manila time
   final List<HourlyForecast> hourly; // next 24 hours
-  final List<(DateTime, double)> pastRain; // the 24 hours before this one
+  // The 24 hours before this one. Empty = the source has no past (backups).
+  final List<(DateTime, double)> pastRain;
   final List<DailyForecast> daily; // today + next days
   // Rain in each 15 minutes of the next 2 hours: (start time, mm).
   // Open-Meteo makes these from its forecast models (outside Europe and
   // North America they're filled in from hourly data, not from radar).
+  // Empty on the backups: [rainStartsAt] then reads the hourly forecast.
   final List<(DateTime, double)> nextTwoHours;
+  final String source; // who sent it: 'Open-Meteo', 'MET Norway', 'wttr.in'
 
   const MabalacatWeather({
     required this.temperature,
     required this.feelsLike,
     required this.humidity,
-    required this.precipitation,
     required this.windSpeed,
     required this.weatherCode,
     required this.isDay,
@@ -109,6 +113,7 @@ class MabalacatWeather {
     required this.pastRain,
     required this.daily,
     required this.nextTwoHours,
+    required this.source,
   });
 
   DailyForecast get today => daily.first;
@@ -118,6 +123,12 @@ class MabalacatWeather {
   DateTime? get rainStartsAt {
     for (final (t, mm) in nextTwoHours) {
       if (mm >= 0.1) return t;
+    }
+    if (nextTwoHours.isNotEmpty) return null;
+    // A backup (no 15-minute data): the hours that start in the next 2 h.
+    final end = time.add(const Duration(hours: 2));
+    for (final h in hourly) {
+      if (h.time.isBefore(end) && h.rain >= 0.1) return h.time;
     }
     return null;
   }
@@ -140,7 +151,7 @@ class MabalacatWeather {
     'longitude': '120.5714',
     'current':
         'temperature_2m,relative_humidity_2m,apparent_temperature,'
-        'precipitation,weather_code,wind_speed_10m,is_day,'
+        'weather_code,wind_speed_10m,is_day,'
         'wind_direction_10m,wind_gusts_10m,pressure_msl,cloud_cover,'
         'uv_index,visibility',
     'hourly':
@@ -202,26 +213,32 @@ class MabalacatWeather {
     return _cached!;
   }
 
-  /// Downloads the weather once and turns it into a [MabalacatWeather].
+  /// Downloads the weather once and turns it into a [MabalacatWeather]:
+  /// Open-Meteo first; if that fails, MET Norway; then wttr.in. Throws the
+  /// last error only when all three fail.
   /// Use [load] instead in the app; it reuses a recent download.
   static Future<MabalacatWeather> fetch() async {
-    // `await` pauses here until the server answers (without freezing the
-    // app). If it takes over 10 seconds, give up with an error instead of
-    // spinning forever on a bad connection.
-    final res = await http.get(_url).timeout(const Duration(seconds: 10));
-    // 200 = "OK". Anything else (e.g. 500 = server problem) is an error.
-    if (res.statusCode != 200) {
-      throw Exception('Weather API returned ${res.statusCode}');
+    Object? error;
+    for (final source in [_openMeteo, fetchMetNorway, fetchWttr]) {
+      try {
+        return await source();
+      } catch (e) {
+        error = e;
+      }
     }
-    // The answer is JSON text. jsonDecode turns it into Dart Maps and
-    // Lists. The shape is roughly:
+    throw error!;
+  }
+
+  static Future<MabalacatWeather> _openMeteo() async {
+    // getWeatherJson turns the JSON text into Dart Maps and Lists. The
+    // shape is roughly:
     //   { "current": { "temperature_2m": 31.2, ... },
     //     "hourly":  { "time": ["2026-09-25T00:00", ...],
     //                  "temperature_2m": [27.1, 26.8, ...], ... },
     //     "daily":   { same idea, one entry per day } }
     // So hourly/daily are "columns": item i of every list belongs to the
     // same hour/day as time[i].
-    final json = jsonDecode(res.body) as Map<String, dynamic>;
+    final json = await getWeatherJson(_url);
     final cur = json['current'] as Map<String, dynamic>;
     final h = json['hourly'] as Map<String, dynamic>;
     final d = json['daily'] as Map<String, dynamic>;
@@ -295,7 +312,6 @@ class MabalacatWeather {
       temperature: (cur['temperature_2m'] as num).toDouble(),
       feelsLike: (cur['apparent_temperature'] as num).toDouble(),
       humidity: (cur['relative_humidity_2m'] as num).toInt(),
-      precipitation: (cur['precipitation'] as num).toDouble(),
       windSpeed: (cur['wind_speed_10m'] as num).toDouble(),
       weatherCode: (cur['weather_code'] as num).toInt(),
       isDay: cur['is_day'] == 1,
@@ -310,6 +326,7 @@ class MabalacatWeather {
       pastRain: pastRain,
       daily: daily,
       nextTwoHours: nextTwoHours,
+      source: 'Open-Meteo',
     );
   }
 
@@ -326,7 +343,7 @@ class MabalacatWeather {
   /// The mm limits are our own simple choice, not an official standard.
   FloodOutlook get floodOutlook {
     final sum = today.rainSum;
-    final chance = today.rainChance;
+    final chance = today.rainChance ?? 0; // MET Norway has none: mm only
     final stormy = weatherCode >= 95 || weatherCode == 65 || weatherCode == 82;
     if (sum >= 30 || (stormy && chance >= 60)) {
       return const FloodOutlook(

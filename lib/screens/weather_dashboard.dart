@@ -20,9 +20,10 @@ import 'home_shell.dart';
 /// ============================================================
 
 // ------------------------------------------------------------
-// Conditions: 8 instrument tiles. They follow the hour picked on the sky
-// card's scrubber (air quality is "now" only). Tap a tile: it flips to a
-// plain explanation of what the number means.
+// Conditions (Nov 18 2026 calm pass, Adrian: 8 tinted tiles were "hard to
+// look at"): ONE card, cells split by hairlines, every cell the same
+// shape: gray icon + label, the value, one plain line. No per-tile colors,
+// no (i) marks, no mini graphs. Tap a cell: a sheet explains the number.
 // ------------------------------------------------------------
 class ConditionsGrid extends StatelessWidget {
   final MabalacatWeather weather;
@@ -49,21 +50,22 @@ class ConditionsGrid extends StatelessWidget {
         final h = hrs[i];
         final now = i == 0;
         final t = now ? w.time : h.time;
-        final tiles = [
+        final tiles = <Widget>[
           _windTile(now, h),
           _feelsTile(now, h),
           _humidityTile(now, h),
           _uvTile(now, h),
           _airTile(now),
-          _visibilityTile(now, h),
+          // MET Norway sends no visibility: no tile then.
+          if ((now ? w.visibility : h.visibility) case final m?)
+            _visibilityTile(m),
           _pressureTile(i),
           _sunTile(t),
         ];
+        final line = c.textSecondary.withValues(alpha: 0.18);
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // One plain title (follows the scrubbed hour). Each tile shows
-            // its own small (i): tapping explains it, so no hint line.
             Padding(
               padding: const EdgeInsets.only(left: 4, bottom: 12),
               child: Text(
@@ -77,19 +79,35 @@ class ConditionsGrid extends StatelessWidget {
                 ),
               ),
             ),
-            LayoutBuilder(
-              builder: (context, box) {
-                const gap = 12.0;
-                final tileW = (box.maxWidth - gap * (columns - 1)) / columns;
-                return Wrap(
-                  spacing: gap,
-                  runSpacing: gap,
-                  children: [
-                    for (final t in tiles)
-                      SizedBox(width: tileW, height: 150, child: t),
+            AppCard(
+              padding: EdgeInsets.zero,
+              child: Column(
+                children: [
+                  for (var r = 0; r < tiles.length; r += columns) ...[
+                    if (r > 0) Divider(height: 1, thickness: 1, color: line),
+                    IntrinsicHeight(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          for (var k = r; k < r + columns; k++) ...[
+                            if (k > r)
+                              VerticalDivider(
+                                width: 1,
+                                thickness: 1,
+                                color: line,
+                              ),
+                            Expanded(
+                              child: k < tiles.length
+                                  ? tiles[k]
+                                  : const SizedBox(),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
                   ],
-                );
-              },
+                ],
+              ),
             ),
           ],
         );
@@ -102,13 +120,12 @@ class ConditionsGrid extends StatelessWidget {
     final dir = now ? weather.windDir : h.windDir;
     return _Tile(
       icon: CupertinoIcons.wind,
-      label: 'WIND',
+      label: 'Wind',
       value: '${speed.round()}',
       unit: ' km/h',
-      sub: now
-          ? 'From ${_compass(dir)} · gusts ${weather.gusts.round()}'
+      sub: now && weather.gusts != null
+          ? 'From ${_compass(dir)} · gusts ${weather.gusts!.round()}'
           : 'From ${_compass(dir)}',
-      corner: _Compass(degrees: dir.toDouble()),
       info:
           'Wind from the ${_compassName(dir)}. PAGASA raises Wind Signal No. 1 at 39-61 km/h: loose roofing and branches start to fly.',
     );
@@ -129,12 +146,9 @@ class ConditionsGrid extends StatelessWidget {
         : 'No heat risk';
     return _Tile(
       icon: CupertinoIcons.thermometer,
-      label: 'FEELS LIKE',
+      label: 'Feels like',
       value: '${feels.round()}°',
-      sub: band,
-      note: feels - temp >= 2
-          ? 'Humidity makes it feel warmer than the actual ${temp.round()}°.'
-          : 'Close to the actual ${temp.round()}°.',
+      sub: '$band · actual ${temp.round()}°',
       info: 'Heat index: how hot humid air feels. PAGASA: 33-41° extreme caution, 42° and up danger. Drink water, rest in shade.',
     );
   }
@@ -143,23 +157,19 @@ class ConditionsGrid extends StatelessWidget {
     final hum = now ? weather.humidity : h.humidity;
     return _Tile(
       icon: CupertinoIcons.drop,
-      label: 'HUMIDITY',
+      label: 'Humidity',
       value: '$hum%',
       sub: hum >= 80
           ? 'Very humid'
           : hum >= 60
           ? 'Humid'
           : 'Comfortable',
-      note: hum >= 60
-          ? 'Wet floors and laundry dry slowly.'
-          : 'Things dry normally today.',
       info: 'How much water the air holds. Humid air makes heat feel worse and slows wet clothes and floors from drying.',
     );
   }
 
   Widget _uvTile(bool now, HourlyForecast h) {
-    final uv = now ? weather.uv : h.uv;
-    final r = uv.round();
+    final r = (now ? weather.uv : h.uv).round();
     // WHO UV index categories.
     final band = r >= 11
         ? 'Extreme'
@@ -172,17 +182,9 @@ class ConditionsGrid extends StatelessWidget {
         : 'Low';
     return _Tile(
       icon: CupertinoIcons.sun_max,
-      label: 'UV INDEX',
+      label: 'UV index',
       value: '$r',
       sub: band,
-      scale: (uv / 11).clamp(0.0, 1.0),
-      scaleColors: const [
-        Color(0xFF30D158),
-        Color(0xFFFFD60A),
-        Color(0xFFFF9F0A),
-        Color(0xFFFF453A),
-        Color(0xFFBF5AF2),
-      ],
       info: 'Sunburn strength (WHO scale). 3 and up: sunscreen and a hat. 8 and up: stay in the shade around midday.',
     );
   }
@@ -194,33 +196,22 @@ class ConditionsGrid extends StatelessWidget {
         final a = snap.data;
         return _Tile(
           icon: CupertinoIcons.smoke,
-          label: 'AIR QUALITY',
-          tag: now ? null : 'NOW',
+          label: now ? 'Air quality' : 'Air quality now',
           value: a == null ? (snap.hasError ? '–' : '…') : '${a.usAqi}',
           sub: a == null
               ? (snap.hasError ? 'Unavailable right now' : 'Loading')
               : '${a.label} · PM2.5 ${a.pm25.toStringAsFixed(1)}',
-          // US EPA bands: good to hazardous, as a scale with a dot.
-          scale: a == null ? null : (a.usAqi / 300).clamp(0.0, 1.0),
-          scaleColors: const [
-            Color(0xFF30D158),
-            Color(0xFFFFD60A),
-            Color(0xFFFF9F0A),
-            Color(0xFFFF453A),
-            Color(0xFFBF5AF2),
-            Color(0xFF8E3A4E),
-          ],
           info: 'US EPA index from Open-Meteo model data, not a local sensor. 0-50 good, 51-100 moderate, over 100 unhealthy for sensitive groups.',
         );
       },
     );
   }
 
-  Widget _visibilityTile(bool now, HourlyForecast h) {
-    final km = (now ? weather.visibility : h.visibility) / 1000;
+  Widget _visibilityTile(double meters) {
+    final km = meters / 1000;
     return _Tile(
       icon: CupertinoIcons.eye,
-      label: 'VISIBILITY',
+      label: 'Visibility',
       value: km >= 10 ? '${km.round()}' : km.toStringAsFixed(1),
       unit: ' km',
       // WMO: fog under 1 km, mist 1-5 km.
@@ -229,11 +220,6 @@ class ConditionsGrid extends StatelessWidget {
           : km < 5
           ? 'Mist or haze'
           : 'Clear view',
-      note: km < 1
-          ? 'Drive slowly with your lights on.'
-          : km < 5
-          ? 'Far roads look hazy.'
-          : 'You can see far and clearly.',
       info: 'How far you can see clearly. Under 1 km counts as fog (WMO): drive slowly with your lights on.',
     );
   }
@@ -245,7 +231,7 @@ class ConditionsGrid extends StatelessWidget {
     final d = later == null ? 0 : later - p;
     return _Tile(
       icon: CupertinoIcons.gauge,
-      label: 'PRESSURE',
+      label: 'Pressure',
       value: p.round().toString(),
       unit: ' hPa',
       sub: later == null
@@ -255,10 +241,6 @@ class ConditionsGrid extends StatelessWidget {
           : d <= -1
           ? 'Falling next 3 h'
           : 'Steady next 3 h',
-      bottom: _Sparkline(
-        values: [for (final h in hrs) h.pressure],
-        selected: i,
-      ),
       info: 'Air pressure at sea level. A steady fall over a few hours often comes before a storm or typhoon.',
     );
   }
@@ -269,20 +251,16 @@ class ConditionsGrid extends StatelessWidget {
     final day = idx < 0 ? weather.today : days[idx];
     final next = idx >= 0 && idx + 1 < days.length ? days[idx + 1] : null;
     final (label, at) = t.isBefore(day.sunrise)
-        ? ('SUNRISE', day.sunrise)
+        ? ('Sunrise', day.sunrise)
         : t.isBefore(day.sunset) || next == null
-        ? ('SUNSET', day.sunset)
-        : ('SUNRISE', next.sunrise);
+        ? ('Sunset', day.sunset)
+        : ('Sunrise', next.sunrise);
     final light = day.sunset.difference(day.sunrise);
     return _Tile(
-      icon: label == 'SUNRISE' ? CupertinoIcons.sunrise : CupertinoIcons.sunset,
+      icon: label == 'Sunrise' ? CupertinoIcons.sunrise : CupertinoIcons.sunset,
       label: label,
       value: formatTime(at),
       sub: 'Daylight ${light.inHours} h ${light.inMinutes % 60} m',
-      bottom: _SunArc(
-        progress:
-            t.difference(day.sunrise).inMinutes / math.max(1, light.inMinutes),
-      ),
       info: 'If heavy rain is coming, travel in daylight: flood water on roads is much harder to judge in the dark.',
     );
   }
@@ -306,26 +284,14 @@ class ConditionsGrid extends StatelessWidget {
 bool _sameDay(DateTime a, DateTime b) =>
     a.year == b.year && a.month == b.month && a.day == b.day;
 
-/// One instrument tile. [corner] sits top right (the compass), [meter]
-/// (0..1) or [bottom] fills the foot. Tap flips it to [info].
-class _Tile extends StatefulWidget {
+/// One cell of the conditions card. Tap = a sheet with [info].
+class _Tile extends StatelessWidget {
   final IconData icon;
   final String label;
   final String value;
   final String unit;
   final String sub;
   final String info;
-  final String? tag;
-  final Widget? corner;
-  final Widget? bottom;
-
-  /// A plain sentence at the foot, for tiles with no picture to show.
-  final String? note;
-
-  /// Where the value sits on its index scale (0..1), drawn as Apple's
-  /// gradient bar with a dot; [scaleColors] = the scale, low to high.
-  final double? scale;
-  final List<Color>? scaleColors;
   const _Tile({
     required this.icon,
     required this.label,
@@ -333,285 +299,84 @@ class _Tile extends StatefulWidget {
     required this.sub,
     required this.info,
     this.unit = '',
-    this.tag,
-    this.corner,
-    this.bottom,
-    this.note,
-    this.scale,
-    this.scaleColors,
   });
 
   @override
-  State<_Tile> createState() => _TileState();
-}
-
-class _TileState extends State<_Tile> {
-  bool _flipped = false;
-
-  // Each tile's own color, like Apple Weather's tinted symbols: a soft
-  // wash in the corner and the icon. Never the risk green / orange / red.
-  static final _tints = <IconData, Color>{
-    CupertinoIcons.wind: kTileTeal,
-    CupertinoIcons.thermometer: const Color(0xFFFFB340),
-    CupertinoIcons.drop: kBlue,
-    CupertinoIcons.sun_max: const Color(0xFFFFD60A),
-    CupertinoIcons.smoke: kTilePurple,
-    CupertinoIcons.eye: kTileIndigo,
-    CupertinoIcons.gauge: const Color(0xFF64D2FF),
-    CupertinoIcons.sunrise: const Color(0xFFFFC94D),
-    CupertinoIcons.sunset: const Color(0xFFFF9F6B),
-  };
-  // Which way the value rolls when the scrubbed hour changes it.
-  bool _up = true;
-
-  static double? _number(String v) =>
-      double.tryParse(RegExp(r'-?\d+(\.\d+)?').firstMatch(v)?.group(0) ?? '');
-
-  @override
-  void didUpdateWidget(_Tile old) {
-    super.didUpdateWidget(old);
-    final a = _number(old.value), b = _number(widget.value);
-    if (a != null && b != null && a != b) _up = b > a;
-  }
-
-  @override
   Widget build(BuildContext context) {
     final c = AppColors(context);
-    final tint = _tints[widget.icon] ?? c.accent;
-    final eyebrow = TextStyle(
-      color: c.textSecondary,
-      fontSize: 12,
-      letterSpacing: 0.3,
-      fontWeight: FontWeight.w600,
-    );
-    final front = Column(
-      key: const ValueKey('front'),
-      crossAxisAlignment: CrossAxisAlignment.start,
+    final head = Row(
       children: [
-        Row(
-          children: [
-            Icon(widget.icon, size: 14, color: c.readable(tint)),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                widget.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: eyebrow,
-              ),
-            ),
-            if (widget.tag != null)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                decoration: BoxDecoration(
-                  color: c.surfaceAlt,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(widget.tag!, style: eyebrow.copyWith(fontSize: 11)),
-              )
-            else
-              Icon(
-                CupertinoIcons.info_circle,
-                size: 14,
-                color: c.textSecondary.withValues(alpha: 0.55),
-              ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              // The value rolls up or down (iOS numeric transition).
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 380),
-                switchInCurve: const Cubic(0.16, 1, 0.3, 1),
-                switchOutCurve: const Cubic(0.16, 1, 0.3, 1),
-                layoutBuilder: (cur, prev) => Stack(
-                  alignment: Alignment.centerLeft,
-                  children: [...prev, ?cur],
-                ),
-                transitionBuilder: (child, anim) {
-                  final incoming = child.key == ValueKey(widget.value);
-                  return FadeTransition(
-                    opacity: anim,
-                    child: SlideTransition(
-                      position: Tween(
-                        begin: Offset(0, incoming == _up ? 0.35 : -0.35),
-                        end: Offset.zero,
-                      ).animate(anim),
-                      child: child,
-                    ),
-                  );
-                },
-                child: FittedBox(
-                  key: ValueKey(widget.value),
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text.rich(
-                    TextSpan(
-                      text: widget.value,
-                      children: [
-                        TextSpan(
-                          text: widget.unit,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: c.textSecondary,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 0,
-                          ),
-                        ),
-                      ],
-                    ),
-                    style: TextStyle(
-                      fontFamily: kDisplayFont,
-                      color: c.textPrimary,
-                      fontSize: 28,
-                      height: 1.05,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: displayTracking(28),
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            ?widget.corner,
-          ],
-        ),
-        const SizedBox(height: 3),
-        Text(
-          widget.sub,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: c.textPrimary,
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const Spacer(),
-        if (widget.bottom != null)
-          widget.bottom!
-        else if (widget.scale != null)
-          _IndexScale(value: widget.scale!, colors: widget.scaleColors!)
-        else if (widget.note != null)
-          Text(
-            widget.note!,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: c.textSecondary, fontSize: 13, height: 1.3),
-          ),
-      ],
-    );
-    final back = Column(
-      key: const ValueKey('back'),
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(widget.label, style: eyebrow.copyWith(color: c.accent)),
-        const SizedBox(height: 6),
+        Icon(icon, size: 13, color: c.textSecondary),
+        const SizedBox(width: 6),
         Expanded(
           child: Text(
-            widget.info,
-            overflow: TextOverflow.fade,
-            style: TextStyle(color: c.textPrimary, fontSize: 13, height: 1.4),
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: c.textSecondary,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ),
       ],
+    );
+    final number = Text.rich(
+      TextSpan(
+        text: value,
+        children: [
+          TextSpan(
+            text: unit,
+            style: TextStyle(
+              fontSize: 15,
+              color: c.textSecondary,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 0,
+            ),
+          ),
+        ],
+      ),
+      maxLines: 1,
+      style: TextStyle(
+        fontFamily: kDisplayFont,
+        color: c.textPrimary,
+        fontSize: 28,
+        height: 1.1,
+        fontWeight: FontWeight.w600,
+        letterSpacing: displayTracking(28),
+        fontFeatures: const [FontFeature.tabularFigures()],
+      ),
     );
     return Semantics(
       button: true,
-      label:
-          '${widget.label}: ${widget.value}${widget.unit}, ${widget.sub}. ${_flipped ? widget.info : 'Tap for what it means.'}',
+      label: '$label: $value$unit, $sub. Tap for what it means.',
       excludeSemantics: true,
-      child: AppCard(
-        radius: 20,
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: c.isDark
-              ? [
-                  tint.withValues(alpha: 0.2),
-                  Colors.white.withValues(alpha: 0.045),
-                ]
-              : [
-                  Color.alphaBlend(
-                    tint.withValues(alpha: 0.12),
-                    Colors.white.withValues(alpha: 0.92),
-                  ),
-                  Colors.white.withValues(alpha: 0.78),
-                ],
-          stops: const [0, 0.7],
-        ),
+      child: PressableScale(
         onTap: () {
           HapticFeedback.selectionClick();
-          setState(() => _flipped = !_flipped);
+          _explain(context);
         },
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 220),
-          transitionBuilder: (child, a) => FadeTransition(
-            opacity: a,
-            child: ScaleTransition(
-              scale: Tween(begin: 0.96, end: 1.0).animate(a),
-              child: child,
-            ),
-          ),
-          child: _flipped ? back : front,
-        ),
-      ),
-    );
-  }
-}
-
-/// Apple Weather's index scale: a thin bar in the scale's own colors
-/// (low to high) and a dot, ringed in the card color, at the reading. The
-/// dot glides when the scrubbed hour changes it.
-class _IndexScale extends StatelessWidget {
-  final double value; // 0..1 along the scale
-  final List<Color> colors;
-  const _IndexScale({required this.value, required this.colors});
-
-  @override
-  Widget build(BuildContext context) {
-    final c = AppColors(context);
-    return SizedBox(
-      height: 10,
-      child: LayoutBuilder(
-        builder: (context, box) => TweenAnimationBuilder<double>(
-          tween: Tween(end: value),
-          duration: const Duration(milliseconds: 450),
-          curve: const Cubic(0.16, 1, 0.3, 1),
-          builder: (context, v, _) => Stack(
-            clipBehavior: Clip.none,
-            alignment: Alignment.centerLeft,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                height: 4,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(2),
-                  gradient: LinearGradient(colors: colors),
-                ),
+              head,
+              const SizedBox(height: 6),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: number,
               ),
-              Positioned(
-                left: (box.maxWidth - 10) * v,
-                child: Container(
-                  width: 10,
-                  height: 10,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: c.isDark ? const Color(0xFF26262A) : Colors.white,
-                      width: 2,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.35),
-                        blurRadius: 3,
-                      ),
-                    ],
-                  ),
+              const SizedBox(height: 2),
+              Text(
+                sub,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: c.textPrimary.withValues(alpha: 0.85),
+                  fontSize: 13,
                 ),
               ),
             ],
@@ -620,208 +385,59 @@ class _IndexScale extends StatelessWidget {
       ),
     );
   }
-}
 
-/// A small compass: ring, N mark, and an arrow showing where the wind
-/// blows TO (the reading is where it comes FROM).
-class _Compass extends StatelessWidget {
-  final double degrees;
-  const _Compass({required this.degrees});
-
-  @override
-  Widget build(BuildContext context) {
-    final c = AppColors(context);
-    return TweenAnimationBuilder<double>(
-      tween: Tween(end: degrees),
-      duration: const Duration(milliseconds: 500),
-      curve: Curves.easeOutCubic,
-      builder: (context, d, _) => CustomPaint(
-        size: const Size(40, 40),
-        painter: _CompassPainter(d, c.textSecondary, c.accent),
-      ),
+  void _explain(BuildContext context) {
+    showAppSheet(
+      context,
+      builder: (sheet) {
+        final c = AppColors(sheet);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, size: 15, color: c.textSecondary),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: c.textSecondary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '$value$unit · $sub',
+              style: TextStyle(
+                fontFamily: kDisplayFont,
+                color: c.textPrimary,
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                letterSpacing: displayTracking(22),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              info,
+              style: TextStyle(
+                color: c.textPrimary,
+                fontSize: 15,
+                height: 1.45,
+              ),
+            ),
+            const SizedBox(height: 20),
+            SecondaryButton(
+              label: 'Done',
+              onPressed: () => Navigator.of(sheet).pop(),
+            ),
+          ],
+        );
+      },
     );
   }
-}
-
-class _CompassPainter extends CustomPainter {
-  final double deg;
-  final Color ink, accent;
-  _CompassPainter(this.deg, this.ink, this.accent);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final o = size.center(Offset.zero);
-    final r = size.width / 2 - 1;
-    final tick = Paint()
-      ..color = ink.withValues(alpha: 0.5)
-      ..strokeWidth = 1;
-    for (var k = 0; k < 12; k++) {
-      final a = k * math.pi / 6;
-      final len = k % 3 == 0 ? 4.0 : 2.0;
-      canvas.drawLine(
-        o + Offset(math.sin(a), -math.cos(a)) * r,
-        o + Offset(math.sin(a), -math.cos(a)) * (r - len),
-        tick,
-      );
-    }
-    final n = TextPainter(
-      text: TextSpan(
-        text: 'N',
-        style: TextStyle(color: ink, fontSize: 11, fontWeight: FontWeight.w800),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    n.paint(canvas, o + Offset(-n.width / 2, -r + 4));
-    // Arrow pointing downwind.
-    canvas.save();
-    canvas.translate(o.dx, o.dy);
-    canvas.rotate((deg + 180) * math.pi / 180);
-    final arrow = Path()
-      ..moveTo(0, -r + 7)
-      ..lineTo(4, -r + 13)
-      ..lineTo(1.2, -r + 12)
-      ..lineTo(1.2, r - 8)
-      ..lineTo(-1.2, r - 8)
-      ..lineTo(-1.2, -r + 12)
-      ..lineTo(-4, -r + 13)
-      ..close();
-    canvas.drawPath(arrow, Paint()..color = accent);
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(_CompassPainter old) => old.deg != deg || old.ink != ink;
-}
-
-/// 24-hour line with a dot on the selected hour.
-class _Sparkline extends StatelessWidget {
-  final List<double> values;
-  final int selected;
-  const _Sparkline({required this.values, required this.selected});
-
-  @override
-  Widget build(BuildContext context) {
-    final c = AppColors(context);
-    return SizedBox(
-      height: 22,
-      width: double.infinity,
-      child: CustomPaint(
-        painter: _SparkPainter(values, selected, c.textSecondary, c.accent),
-      ),
-    );
-  }
-}
-
-class _SparkPainter extends CustomPainter {
-  final List<double> v;
-  final int sel;
-  final Color ink, accent;
-  _SparkPainter(this.v, this.sel, this.ink, this.accent);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (v.length < 2) return;
-    final lo = v.reduce(math.min), hi = v.reduce(math.max);
-    Offset at(int i) => Offset(
-      i / (v.length - 1) * size.width,
-      hi - lo < 0.5
-          ? size.height / 2
-          : size.height - 3 - (v[i] - lo) / (hi - lo) * (size.height - 6),
-    );
-    final path = Path()..moveTo(at(0).dx, at(0).dy);
-    for (var i = 1; i < v.length; i++) {
-      path.lineTo(at(i).dx, at(i).dy);
-    }
-    canvas.drawPath(
-      path,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5
-        ..strokeJoin = StrokeJoin.round
-        ..color = ink.withValues(alpha: 0.6),
-    );
-    final p = at(sel.clamp(0, v.length - 1));
-    canvas.drawCircle(p, 4, Paint()..color = accent.withValues(alpha: 0.3));
-    canvas.drawCircle(p, 2.5, Paint()..color = accent);
-  }
-
-  @override
-  bool shouldRepaint(_SparkPainter old) =>
-      old.sel != sel || old.v != v || old.ink != ink;
-}
-
-/// The sun's path from sunrise to sunset; [progress] 0..1 places it (out
-/// of that range = night, the sun waits dimmed on the horizon).
-class _SunArc extends StatelessWidget {
-  final double progress;
-  const _SunArc({required this.progress});
-
-  @override
-  Widget build(BuildContext context) {
-    final c = AppColors(context);
-    return TweenAnimationBuilder<double>(
-      tween: Tween(end: progress),
-      duration: const Duration(milliseconds: 500),
-      curve: Curves.easeOutCubic,
-      builder: (context, p, _) => SizedBox(
-        height: 28,
-        width: double.infinity,
-        child: CustomPaint(painter: _SunPainter(p, c.textSecondary)),
-      ),
-    );
-  }
-}
-
-class _SunPainter extends CustomPainter {
-  final double p;
-  final Color ink;
-  _SunPainter(this.p, this.ink);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final base = size.height - 2;
-    final rect = Rect.fromLTWH(6, 4, size.width - 12, (base - 4) * 2);
-    canvas.drawLine(
-      Offset(0, base),
-      Offset(size.width, base),
-      Paint()
-        ..color = ink.withValues(alpha: 0.35)
-        ..strokeWidth = 1,
-    );
-    final arc = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5
-      ..color = ink.withValues(alpha: 0.45);
-    canvas.drawArc(rect, math.pi, math.pi, false, arc);
-    final up = p >= 0 && p <= 1;
-    final q = p.clamp(0.0, 1.0);
-    final a = math.pi + q * math.pi;
-    final sun = up
-        ? Offset(
-            rect.center.dx + math.cos(a) * rect.width / 2,
-            rect.center.dy + math.sin(a) * rect.height / 2,
-          )
-        : Offset(p < 0 ? rect.left : rect.right, base);
-    if (up) {
-      canvas.drawArc(
-        rect,
-        math.pi,
-        q * math.pi,
-        false,
-        arc..color = const Color(0xFFFFC94D),
-      );
-      canvas.drawCircle(sun, 7, Paint()..color = const Color(0x55FFC94D));
-    }
-    canvas.drawCircle(
-      sun,
-      4,
-      Paint()
-        ..color = up ? const Color(0xFFFFC94D) : ink.withValues(alpha: 0.6),
-    );
-  }
-
-  @override
-  bool shouldRepaint(_SunPainter old) => old.p != p || old.ink != ink;
 }
 
 // ------------------------------------------------------------
