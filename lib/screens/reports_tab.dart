@@ -12,6 +12,7 @@ import '../widgets/agos_icons.dart';
 import '../widgets/common.dart';
 import '../widgets/flood_depth.dart';
 import '../widgets/my_barangay.dart';
+import '../widgets/photo_viewer.dart';
 import '../widgets/responsive.dart';
 import '../widgets/tugak.dart';
 import '../widgets/user_profile.dart';
@@ -569,53 +570,78 @@ class ReportPost extends StatelessWidget {
             ),
           ),
           // ---- the photo, edge to edge, with the depth on it
+          // Tap anywhere on the photo (the depth on it too): the photo full
+          // screen, zoomable (photo_viewer.dart). The tap goes on the whole
+          // area because the depth's dark fade covers the image.
           if (hasPhoto)
-            AspectRatio(
-              aspectRatio: 4 / 3,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  const ColoredBox(color: kGraphite),
-                  Image.network(
-                    z.photoUrl!,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => Center(
-                      child: Icon(
-                        CupertinoIcons.photo,
-                        size: 28,
-                        color: Colors.white.withValues(alpha: 0.35),
-                      ),
-                    ),
-                  ),
-                  if (z.hasDepth)
-                    const DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.center,
-                          end: Alignment.bottomCenter,
-                          colors: [Color(0x00000000), Color(0xA6000000)],
+            Semantics(
+              button: true,
+              label: 'Open the photo full screen',
+              child: GestureDetector(
+                onTap: () => openPhotoViewer(
+                  context,
+                  url: z.photoUrl!,
+                  heroTag: 'report-photo-${z.reportId}',
+                  title: z.posterName,
+                  subtitle:
+                      'Photo ${timeAgo(z.photoAge)} · Brgy. ${z.barangay}',
+                ),
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.zoomIn,
+                  child: AspectRatio(
+                    aspectRatio: 4 / 3,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        const ColoredBox(color: kGraphite),
+                        Hero(
+                          tag: 'report-photo-${z.reportId}',
+                          child: Image.network(
+                            z.photoUrl!,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            height: double.infinity,
+                            errorBuilder: (_, _, _) => Center(
+                              child: Icon(
+                                CupertinoIcons.photo,
+                                size: 28,
+                                color: Colors.white.withValues(alpha: 0.35),
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
+                        if (z.hasDepth)
+                          const DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.center,
+                                end: Alignment.bottomCenter,
+                                colors: [Color(0x00000000), Color(0xA6000000)],
+                              ),
+                            ),
+                          ),
+                        // How old the photo is: what matters for a flood.
+                        Positioned(
+                          right: 10,
+                          top: 10,
+                          child: _PhotoPill('Photo ${timeAgo(z.photoAge)}'),
+                        ),
+                        if (z.hasDepth)
+                          Positioned(
+                            left: 14,
+                            bottom: 10,
+                            right: 14,
+                            child: _DepthHeadline(
+                              depth: depthText,
+                              level: level == FloodLevel.dry ? '' : level.label,
+                              ink: Colors.white,
+                              muted: const Color(0xCCFFFFFF),
+                            ),
+                          ),
+                      ],
                     ),
-                  // How old the photo is: what matters for a flood.
-                  Positioned(
-                    right: 10,
-                    top: 10,
-                    child: _PhotoPill('Photo ${timeAgo(z.photoAge)}'),
                   ),
-                  if (z.hasDepth)
-                    Positioned(
-                      left: 14,
-                      bottom: 10,
-                      right: 14,
-                      child: _DepthHeadline(
-                        depth: depthText,
-                        level: level == FloodLevel.dry ? '' : level.label,
-                        ink: Colors.white,
-                        muted: const Color(0xCCFFFFFF),
-                      ),
-                    ),
-                ],
+                ),
               ),
             ),
           // ---- depth details

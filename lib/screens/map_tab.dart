@@ -17,6 +17,7 @@ import '../widgets/common.dart';
 import '../widgets/flood_depth.dart';
 import '../widgets/links.dart';
 import '../widgets/map_glass.dart';
+import '../widgets/photo_viewer.dart';
 import '../widgets/responsive.dart';
 import '../widgets/user_profile.dart';
 import '../widgets/vote_bar.dart';
@@ -1437,11 +1438,28 @@ class _ZonePhoto extends StatelessWidget {
         aspectRatio: 16 / 9,
         child: zone.photoUrl == null
             ? _placeholder(color, fill)
-            : Image.network(
-                zone.photoUrl!,
-                fit: BoxFit.cover,
-                gaplessPlayback: true,
-                errorBuilder: (_, _, _) => _placeholder(color, fill),
+            // Tap: the photo full screen, zoomable (photo_viewer.dart).
+            : GestureDetector(
+                onTap: () => openPhotoViewer(
+                  context,
+                  url: zone.photoUrl!,
+                  heroTag: 'map-photo-${zone.reportId}',
+                  title: zone.posterName,
+                  subtitle:
+                      'Photo ${timeAgo(zone.photoAge)} · Brgy. ${zone.barangay}',
+                ),
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.zoomIn,
+                  child: Hero(
+                    tag: 'map-photo-${zone.reportId}',
+                    child: Image.network(
+                      zone.photoUrl!,
+                      fit: BoxFit.cover,
+                      gaplessPlayback: true,
+                      errorBuilder: (_, _, _) => _placeholder(color, fill),
+                    ),
+                  ),
+                ),
               ),
       ),
     );

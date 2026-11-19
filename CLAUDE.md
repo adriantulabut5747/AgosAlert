@@ -400,6 +400,12 @@ API, never its own users/password table.
   `VoteBar`, `PostedBy` / `showUserProfile` are shared by the posts and
   the pin popup. "View on map" sets `focusedReport`, which the Map tab
   listens to. Tests set `floodReports` directly (`testReport()`).
+- **Photo viewer (Nov 19 2026, Adrian: "like Messenger")**: tap a report
+  photo (Reports post, Map pin sheet) = `openPhotoViewer`
+  (`lib/widgets/photo_viewer.dart`): black, x + who / when, zoom out / in;
+  pinch / wheel zoom around the pointer, double-tap zoom, pan while zoomed,
+  drag down to close, Esc. The Laravel site has the same viewer
+  (`partials/photo-viewer.blade.php`, same wheel speed): change both.
 - `lib/widgets/flood_depth.dart`: flood depth levels (ankle → over head),
   cm/ft, the gauge drawing, and the depth → risk cut-offs (≤20 cm normal,
   ≤50 moderate, else high) that the map legend also shows.
