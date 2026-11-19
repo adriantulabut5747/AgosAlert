@@ -933,133 +933,141 @@ class _ProfileMenu extends StatelessWidget {
         fontWeight: FontWeight.w600,
       ),
     );
-    return MenuAnchor(
-      alignmentOffset: const Offset(0, 10),
-      style: MenuStyle(
-        backgroundColor: WidgetStatePropertyAll(c.surface),
-        surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
-        elevation: const WidgetStatePropertyAll(10),
-        shadowColor: WidgetStatePropertyAll(
-          Colors.black.withValues(alpha: 0.5),
-        ),
-        padding: const WidgetStatePropertyAll(EdgeInsets.all(8)),
-        shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: c.border),
+    // Rebuilds after a name change in Settings (meChanged).
+    return ListenableBuilder(
+      listenable: meChanged,
+      builder: (context, _) => MenuAnchor(
+        alignmentOffset: const Offset(0, 10),
+        style: MenuStyle(
+          backgroundColor: WidgetStatePropertyAll(c.surface),
+          surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+          elevation: const WidgetStatePropertyAll(10),
+          shadowColor: WidgetStatePropertyAll(
+            Colors.black.withValues(alpha: 0.5),
+          ),
+          padding: const WidgetStatePropertyAll(EdgeInsets.all(8)),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: c.border),
+            ),
           ),
         ),
-      ),
-      builder: (context, menu, _) => Tooltip(
-        message: 'Account',
-        child: Material(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-          child: InkWell(
+        builder: (context, menu, _) => Tooltip(
+          message: 'Account',
+          child: Material(
+            color: Colors.transparent,
             borderRadius: BorderRadius.circular(12),
-            onTap: () => menu.isOpen ? menu.close() : menu.open(),
-            child: Padding(
-              padding: avatarOnly
-                  ? const EdgeInsets.all(2)
-                  : const EdgeInsets.fromLTRB(4, 4, 8, 4),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _Avatar(size: avatarOnly ? 40 : 34),
-                  if (!compact) ...[
-                    const SizedBox(width: 10),
-                    Text(
-                      isGuest ? 'Guest' : me!.fullName,
-                      style: TextStyle(
-                        color: c.textPrimary,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => menu.isOpen ? menu.close() : menu.open(),
+              child: Padding(
+                padding: avatarOnly
+                    ? const EdgeInsets.all(2)
+                    : const EdgeInsets.fromLTRB(4, 4, 8, 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _Avatar(size: avatarOnly ? 40 : 34),
+                    if (!compact) ...[
+                      const SizedBox(width: 10),
+                      Text(
+                        isGuest ? 'Guest' : me!.fullName,
+                        style: TextStyle(
+                          color: c.textPrimary,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
+                    ],
+                    if (!avatarOnly) ...[
+                      const SizedBox(width: 2),
+                      Icon(CupertinoIcons.chevron_down, color: c.textSecondary),
+                    ],
                   ],
-                  if (!avatarOnly) ...[
-                    const SizedBox(width: 2),
-                    Icon(CupertinoIcons.chevron_down, color: c.textSecondary),
-                  ],
-                ],
+                ),
               ),
             ),
           ),
         ),
-      ),
-      menuChildren: [
-        _header(c),
-        Divider(height: 17, color: c.border),
-        MenuItemButton(
-          style: itemStyle,
-          leadingIcon: const Icon(CupertinoIcons.placemark, size: 20),
-          trailingIcon: Text(
-            myBarangay.value ?? 'Not set',
-            style: TextStyle(color: c.textSecondary, fontSize: 13),
+        menuChildren: [
+          _header(c),
+          Divider(height: 17, color: c.border),
+          MenuItemButton(
+            style: itemStyle,
+            leadingIcon: const Icon(CupertinoIcons.placemark, size: 20),
+            trailingIcon: Text(
+              myBarangay.value ?? 'Not set',
+              style: TextStyle(color: c.textSecondary, fontSize: 13),
+            ),
+            onPressed: () => pickMyBarangay(context),
+            child: const Text('My barangay'),
           ),
-          onPressed: () => pickMyBarangay(context),
-          child: const Text('My barangay'),
-        ),
-        MenuItemButton(
-          style: itemStyle,
-          leadingIcon: Icon(
-            c.isDark ? CupertinoIcons.moon_fill : CupertinoIcons.sun_max,
-            size: 20,
+          MenuItemButton(
+            style: itemStyle,
+            leadingIcon: Icon(
+              c.isDark ? CupertinoIcons.moon_fill : CupertinoIcons.sun_max,
+              size: 20,
+            ),
+            trailingIcon: Text(
+              c.isDark ? 'On' : 'Off',
+              style: TextStyle(color: c.textSecondary, fontSize: 13),
+            ),
+            // Changing themeNotifier.value makes the ValueListenableBuilder
+            // in main.dart rebuild MaterialApp with the other theme.
+            onPressed: () => themeNotifier.value = c.isDark
+                ? ThemeMode.light
+                : ThemeMode.dark,
+            child: const Text('Dark mode'),
           ),
-          trailingIcon: Text(
-            c.isDark ? 'On' : 'Off',
-            style: TextStyle(color: c.textSecondary, fontSize: 13),
-          ),
-          // Changing themeNotifier.value makes the ValueListenableBuilder
-          // in main.dart rebuild MaterialApp with the other theme.
-          onPressed: () =>
-              themeNotifier.value = c.isDark ? ThemeMode.light : ThemeMode.dark,
-          child: const Text('Dark mode'),
-        ),
-        Divider(height: 17, color: c.border),
-        MenuItemButton(
-          style: itemStyle,
-          leadingIcon: const Icon(CupertinoIcons.slider_horizontal_3, size: 20),
-          onPressed: () => openSettings(context),
-          child: const Text('Settings'),
-        ),
-        MenuItemButton(
-          style: itemStyle,
-          leadingIcon: const Icon(CupertinoIcons.question_circle, size: 20),
-          onPressed: () => openHelp(context),
-          child: const Text('Help & FAQ'),
-        ),
-        MenuItemButton(
-          style: itemStyle,
-          leadingIcon: const Icon(CupertinoIcons.info_circle, size: 20),
-          onPressed: () => openAbout(context),
-          child: const Text('About AgosAlert'),
-        ),
-        Divider(height: 17, color: c.border),
-        if (isGuest)
+          Divider(height: 17, color: c.border),
           MenuItemButton(
             style: itemStyle,
             leadingIcon: const Icon(
-              CupertinoIcons.person_crop_circle,
+              CupertinoIcons.slider_horizontal_3,
               size: 20,
             ),
-            onPressed: () => logIn(context),
-            child: const Text('Log in'),
-          )
-        else
-          MenuItemButton(
-            style: itemStyle.copyWith(
-              foregroundColor: const WidgetStatePropertyAll(kDanger),
-              iconColor: const WidgetStatePropertyAll(kDanger),
-            ),
-            leadingIcon: const Icon(
-              CupertinoIcons.square_arrow_right,
-              size: 20,
-            ),
-            onPressed: () => confirmLogout(context),
-            child: const Text('Log out'),
+            onPressed: () => openSettings(context),
+            child: const Text('Settings'),
           ),
-      ],
+          MenuItemButton(
+            style: itemStyle,
+            leadingIcon: const Icon(CupertinoIcons.question_circle, size: 20),
+            onPressed: () => openHelp(context),
+            child: const Text('Help & FAQ'),
+          ),
+          MenuItemButton(
+            style: itemStyle,
+            leadingIcon: const Icon(CupertinoIcons.info_circle, size: 20),
+            onPressed: () => openAbout(context),
+            child: const Text('About AgosAlert'),
+          ),
+          Divider(height: 17, color: c.border),
+          if (isGuest)
+            MenuItemButton(
+              style: itemStyle,
+              leadingIcon: const Icon(
+                CupertinoIcons.person_crop_circle,
+                size: 20,
+              ),
+              onPressed: () => logIn(context),
+              child: const Text('Log in'),
+            )
+          else
+            MenuItemButton(
+              style: itemStyle.copyWith(
+                foregroundColor: const WidgetStatePropertyAll(kDanger),
+                iconColor: const WidgetStatePropertyAll(kDanger),
+              ),
+              leadingIcon: const Icon(
+                CupertinoIcons.square_arrow_right,
+                size: 20,
+              ),
+              onPressed: () => confirmLogout(context),
+              child: const Text('Log out'),
+            ),
+        ],
+      ),
     );
   }
 

@@ -174,7 +174,7 @@ class AboutScreen extends StatelessWidget {
                     _source(
                       c,
                       'Weather, air quality',
-                      'Open-Meteo (open-meteo.com)',
+                      'Open-Meteo (open-meteo.com); backups: MET Norway (api.met.no), wttr.in',
                     ),
                     _source(
                       c,
@@ -212,6 +212,30 @@ class AboutScreen extends StatelessWidget {
                   ],
                 ),
               ),
+              const SizedBox(height: 22),
+              const FieldLabel('Legal'),
+              AppCard(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Column(
+                  children: [
+                    for (final (label, page) in [
+                      ('Terms of Use', 'terms'),
+                      ('Privacy Policy', 'privacy'),
+                      ('Copyright and takedown', 'takedown'),
+                    ])
+                      _link(c, label, () => openLegalPage(context, page)),
+                    _link(
+                      c,
+                      'Open-source licences',
+                      () => showLicensePage(
+                        context: context,
+                        applicationName: 'AgosAlert',
+                        applicationVersion: '1.0.0',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(height: 24),
               Center(
                 child: Text(
@@ -221,6 +245,34 @@ class AboutScreen extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _link(AppColors c, String label, VoidCallback onTap) {
+    return PressableScale(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: c.textPrimary,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            Icon(
+              CupertinoIcons.chevron_right,
+              size: 16,
+              color: c.textSecondary,
+            ),
+          ],
         ),
       ),
     );

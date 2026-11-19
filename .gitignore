@@ -35,3 +35,6 @@ android/local.properties
 
 # Group research papers: keep them out of the public repo
 lib/screens/research/
+
+# Python bytecode from tools/*.py
+__pycache__/

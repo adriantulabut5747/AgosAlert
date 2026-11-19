@@ -23,3 +23,8 @@ Future<bool> shareText(String text) async {
 /// tab was open: the old app asks for part files that no longer exist,
 /// and only a reload gets the new app with matching parts.
 void reloadPage() => web.window.location.reload();
+
+/// Takes the `?...` part off the address bar without reloading, so a
+/// used one-time link (password reset) isn't tried again on reload.
+void clearAddressQuery() =>
+    web.window.history.replaceState(null, '', web.window.location.pathname);

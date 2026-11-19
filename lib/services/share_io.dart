@@ -6,3 +6,6 @@ Future<bool> shareText(String text) async => false;
 
 /// Only the browser can reload (share_web.dart); elsewhere it does nothing.
 void reloadPage() {}
+
+/// Phones have no address bar; nothing to clear.
+void clearAddressQuery() {}

@@ -1,5 +1,9 @@
+import 'package:flutter/foundation.dart'
+    show LicenseEntryWithLineBreaks, LicenseRegistry;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 
+import 'screens/account.dart' show showChangePassword;
 import 'screens/home_shell.dart';
 import 'screens/login_screen.dart';
 import 'services/alerts.dart';
@@ -20,7 +24,26 @@ Future<void> main() async {
   await initAuth();
   startAlerts(); // the bell's alerts + live updates (not awaited)
   startReports(); // the flood reports + live updates (not awaited: the app opens meanwhile)
+  _addLicenses();
   runApp(const AgosAlertApp());
+}
+
+// About > Open-source licences lists the Dart packages by itself; these
+// are the files we ship that it can't see (fonts, the map and 3D code).
+// Read only when that page opens.
+void _addLicenses() {
+  LicenseRegistry.addLicense(() async* {
+    for (final (packages, file) in [
+      (['Inter (font)'], 'assets/fonts/Inter-LICENSE.txt'),
+      (['MapLibre GL JS'], 'web/map/LICENSE.txt'),
+      (['three.js'], 'web/tugak/three/LICENSE.txt'),
+    ]) {
+      yield LicenseEntryWithLineBreaks(
+        packages,
+        await rootBundle.loadString(file),
+      );
+    }
+  });
 }
 
 class AgosAlertApp extends StatelessWidget {
@@ -45,12 +68,42 @@ class AgosAlertApp extends StatelessWidget {
         scrollBehavior: const _AppleScroll(),
         // Logged in (or ?as=guest from the landing page): straight into
         // the app, usually on Weather. Otherwise the login screen.
-        home: !isGuest || openAsGuest
+        // From a password reset email: logged in, so open the app and ask
+        // for the new password at once; a dead link lands on the login
+        // screen with Tugak saying so.
+        home: resetLinkWorked == true && !isGuest
+            ? const _AfterReset()
+            : !isGuest || openAsGuest
             ? HomeShell(initialTab: launchTab)
-            : const LoginScreen(),
+            : LoginScreen(
+                message: resetLinkWorked == false
+                    ? 'That reset link was already used or is over an hour old. Tap "Forgot password?" for a fresh one.'
+                    : null,
+              ),
       ),
     );
   }
+}
+
+/// The app, with "Set a new password" opened on top once it's shown.
+class _AfterReset extends StatefulWidget {
+  const _AfterReset();
+
+  @override
+  State<_AfterReset> createState() => _AfterResetState();
+}
+
+class _AfterResetState extends State<_AfterReset> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => showChangePassword(context, afterReset: true),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => HomeShell(initialTab: launchTab);
 }
 
 /// iOS scrolling everywhere: lists rubber-band past their ends and spring

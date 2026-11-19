@@ -26,6 +26,11 @@ import '../theme.dart';
 /// value below falls back to its default there.
 Map<String, String> get _query => Uri.base.queryParameters;
 
+/// The one-time code from a password reset email
+/// (`?token_hash=...&type=recovery`, see supabase/email_reset_password.html).
+String? get recoveryTokenHash =>
+    _query['type'] == 'recovery' ? _query['token_hash'] : null;
+
 /// The landing page's "Continue as guest" (`?as=guest`).
 bool get openAsGuest => _query['as'] == 'guest';
 

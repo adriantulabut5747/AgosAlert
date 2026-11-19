@@ -1,0 +1,88 @@
+/* The legal pages (privacy.html, terms.html, takedown.html): the
+   landing page's night colors (tokens from landing.css :root), no sky or
+   animation, one readable column. */
+:root {
+  color-scheme: dark;
+  --blue: #0A84FF;
+  --text: #F5F5F7;
+  --body: #C9C9CF;
+  --muted: #9A9AA1;
+  --page: #05060c;
+  --surface: #14151d;
+  --border: rgba(255, 255, 255, .08);
+  --font: -apple-system, BlinkMacSystemFont, "Inter", system-ui, "Segoe UI", Roboto, sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0;
+  font-family: var(--font);
+  background: var(--page);
+  color: var(--body);
+  font-size: 17px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--blue); text-underline-offset: 3px; }
+
+.bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  max-width: 760px; margin: 0 auto; padding: 22px 20px;
+}
+.bar img { height: 28px; width: auto; display: block; }
+.bar a.back { color: var(--muted); font-size: 15px; text-decoration: none; }
+.bar a.back:hover { color: var(--text); }
+
+main { max-width: 760px; margin: 0 auto; padding: 24px 20px 64px; }
+h1 {
+  color: var(--text); font-size: 40px; line-height: 1.1; letter-spacing: -.02em;
+  margin: 0 0 8px; font-weight: 700;
+}
+.date { color: var(--muted); font-size: 15px; margin: 0 0 32px; }
+h2 {
+  color: var(--text); font-size: 22px; line-height: 1.25; margin: 44px 0 10px;
+  font-weight: 700; scroll-margin-top: 20px;
+}
+h3 { color: var(--text); font-size: 17px; margin: 24px 0 6px; }
+p, ul, ol { margin: 0 0 14px; }
+li { margin-bottom: 6px; }
+strong { color: var(--text); }
+
+/* The short version at the top of each page. */
+.summary {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 18px;
+  padding: 18px 22px 6px; margin-bottom: 8px;
+}
+.summary ul { padding-left: 20px; }
+
+/* An emergency line: the only red on these pages. */
+.urgent {
+  border: 1px solid rgba(255, 69, 58, .35); padding: 12px 16px; margin: 0 0 14px;
+  background: rgba(255, 69, 58, .08); border-radius: 14px; color: var(--text);
+}
+
+.table-wrap { overflow-x: auto; margin: 0 0 14px; }
+table { width: 100%; border-collapse: collapse; font-size: 15px; min-width: 560px; }
+th, td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+th { color: var(--text); font-weight: 600; }
+
+footer {
+  border-top: 1px solid var(--border); color: var(--muted); font-size: 13px;
+  padding: 24px 20px 32px;
+}
+footer div { max-width: 760px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 8px 20px; }
+footer a { color: var(--text); }
+
+@media (max-width: 560px) {
+  body { font-size: 16px; }
+  h1 { font-size: 32px; }
+  /* The table becomes one card per row, each cell labelled. */
+  table { min-width: 0; }
+  thead { display: none; }
+  table, tbody, tr, td { display: block; }
+  tr { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 6px 16px; margin-bottom: 12px; }
+  td { padding: 8px 0; }
+  td:last-child { border-bottom: 0; }
+  td[data-label]:not(:first-child)::before { content: attr(data-label); display: block; color: var(--muted); font-size: 13px; }
+}

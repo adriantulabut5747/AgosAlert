@@ -19,7 +19,31 @@ Editor (no CLI). Done: `users`, `flood_reports` (+ the
 `report-photos` Storage bucket, the `flood_report_feed` view, an hourly
 pg_cron delete), `report_votes` (03), `alerts` + `alert_reads` (04;
 no admin screen yet, admins post with the INSERT example at the top of
-the file). Still sample data / memory only: rescue_requests,
+the file), `05_account.sql` (Nov 18 2026: `delete_my_account()` RPC +
+a select policy on the user's own photo folder, without which Storage's
+remove() silently did nothing). Settings → Account = change display
+name + Change password + Delete account (account.dart sheets, auth.dart
+`changePassword`, 
+`saveMyName` / `deleteMyAccount`, `meChanged` rebuilds the top bar).
+**Password reset (Nov 19 2026):** login "Forgot password?" →
+`sendPasswordReset` → email from **Gmail SMTP** (Supabase's built-in
+mailer only reaches team members) using the custom template in
+`supabase/email_reset_password.html`: its link carries `?token_hash=`
+`&type=recovery`, which `initAuth` checks with `verifyOTP` (works on any
+device, unlike Supabase's same-browser `?code=`), clears from the
+address bar, then main.dart opens the app + "Set a new password"
+(`_AfterReset`); a dead link = login screen with Tugak's line
+(`LoginScreen(message:)`). The app's addresses must be in Supabase's
+Redirect URLs.
+**Legal pages (Nov 18 2026)** live on the landing site only:
+`landing/privacy.html` (RA 10173; `#delete` is the Google Play deletion
+link, keep it), `terms.html`, `takedown.html` (Philippine RA 8293, NOT
+"DMCA": US law), shared `legal.css`. The app opens them with
+`openLegalPage` (links.dart); sign-up shows the short notice. Contact =
+Adrian's email (his call). **Keep privacy.html true:** any new table,
+column or outside service updates it in the same commit. About → Open-
+source licences = Flutter's page + Inter / MapLibre / three.js texts
+(`_addLicenses` in main.dart). Still sample data / memory only: rescue_requests,
 flagged_numbers, evacuation_centers, device_tokens. Evacuation centers
 show NO capacity / evacuee numbers (Nov 13 2026, Adrian: nobody can
 know them), so the paper's Table 21 must drop `capacity` and
@@ -96,10 +120,13 @@ API, never its own users/password table.
   greeting + 5 days (stage height = that column, min 440). **The flood
   watch card was dropped Nov 14 2026 (Adrian)**; Flood reports runs full
   width under the stage. Then (Nov 13 2026 dashboard redesign,
-  `weather_dashboard.dart`) 8 **conditions tiles** that follow the
-  scrubbed hour and flip to a plain explanation on tap (wind compass,
-  feels like + PAGASA heat index, humidity, UV, air quality from
-  Open-Meteo's Air Quality API, visibility, pressure sparkline, sun arc),
+  `weather_dashboard.dart`) 8 **conditions** (Nov 18 2026 calm pass,
+  Adrian: the tinted tiles were "hard to look at"): ONE card split by
+  hairlines, every cell = gray icon + label, value, one plain line; tap
+  = a sheet explaining it (wind, feels like + PAGASA heat index,
+  humidity, UV, air quality from Open-Meteo's Air Quality API,
+  visibility, pressure, sunrise/sunset). No per-cell tints, (i) marks,
+  compass, sparkline or sun arc: don't bring them back,
   **Rain, 48 hours** (last 24 h + next 24 h against the 30 mm line,
   draggable bars), **On the map now** (`FloodOpsCard`, Nov 14 2026
   redesign, Adrian disliked the red depth bars: the live reports newest
@@ -109,8 +136,7 @@ API, never its own users/password table.
   all N in Reports" only when some don't fit; tap = map on that pin), and the 5-day forecast (on phones too it sits right under the live card, Nov 14 2026) with full-color
   `WeatherGlyph`s (`lib/widgets/weather_glyph.dart`, drawn in code:
   yellow sun, white clouds, blue rain, yellow bolt; gently animated) and
-  temperature-colored range bars (`tempColor`). Conditions tiles each
-  have their own tint (icon + a soft wash, never risk green/orange/red). The sky card is
+  temperature-colored range bars (`tempColor`). The sky card is
   navy only (`weatherGradient`), clouds always drift across it
   (`DriftingClouds`, Adrian's call), no rising water any more. "Your
   city right now" was removed (Adrian disliked it). The old 24 h rain card and
@@ -566,7 +592,9 @@ screenshot — use a branch for risky changes.
 - Help (phones + tablets): compact SOS (button beside its caption), all
   hotlines and all evacuation centers listed (no "All" tap).
 - Stars: app phones 1/3 as many and dimmer; landing phones dimmer, no
-  sparkles, no shooting star.
+  sparkles, no shooting star. Nov 19 2026 (Adrian: "annoying and ugly"):
+  landing stars cut to about half on every screen and the + sparkles gone
+  everywhere (landing.js); don't bring them back.
 - Login: blue main button; copy "Welcome back" / "Join the watch".
   Landing copy rewritten (hero "Know the flood / before your / street
   does."; each line <= the old longest, they can't wrap). Body copy 17-20

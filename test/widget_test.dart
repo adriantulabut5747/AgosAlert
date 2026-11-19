@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -169,6 +170,45 @@ void main() {
     await tester.tap(find.text('Create my account').last);
     await tester.pump();
     expect(find.textContaining('I need your full name first.'), findsOneWidget);
+  });
+
+  testWidgets('Forgot password opens the reset sheet with the typed email', (
+    tester,
+  ) async {
+    me = null;
+    await pumpPhone(tester, const LoginScreen());
+    await tester.enterText(find.byType(TextField).first, 'juan@example.com');
+    await tester.tap(find.text('Forgot password?'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('Send reset link'), findsOneWidget);
+    expect(find.text('juan@example.com'), findsWidgets);
+  });
+
+  testWidgets('Change password asks for the current one first', (tester) async {
+    me = kTestUser;
+    await pumpPhone(tester, const SettingsScreen());
+    await tester.tap(find.text('Change'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('Current password'), findsOneWidget);
+    await tester.tap(find.text('Save'));
+    await tester.pump();
+    expect(find.text('Type your current password first.'), findsOneWidget);
+  });
+
+  testWidgets('A dead reset link opens the login screen with Tugak saying so', (
+    tester,
+  ) async {
+    me = null;
+    await pumpPhone(
+      tester,
+      const LoginScreen(message: 'That reset link was already used.'),
+    );
+    expect(
+      find.textContaining('That reset link was already used.'),
+      findsOneWidget,
+    );
   });
 
   // Tugak's login lines go by Supabase's error code; no connection = not an AuthException.
@@ -636,10 +676,10 @@ void main() {
     );
     expect(find.text('Right now', skipOffstage: false), findsOneWidget);
 
-    // Tap the UV tile: it flips to what the number means.
-    await tester.scrollUntilVisible(find.text('UV INDEX'), 300);
+    // Tap the UV cell: a sheet says what the number means.
+    await tester.scrollUntilVisible(find.text('UV index'), 300);
     await tester.pump(const Duration(milliseconds: 500));
-    await tester.tap(find.text('UV INDEX'));
+    await tester.tap(find.text('UV index'));
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
     expect(find.textContaining('Sunburn strength'), findsOneWidget);
@@ -649,6 +689,49 @@ void main() {
       const Scaffold(body: WeatherTab()),
       size: const Size(1440, 900),
     );
+  });
+
+  // Open-Meteo down: the Weather tab runs on MET Norway (the saved
+  // response, its hours moved to start now), names it, and hides what MET
+  // doesn't send (rain chance, visibility, the past-24 h rain card).
+  testWidgets('Weather: falls back to MET Norway', (tester) async {
+    final met = jsonDecode(
+      File('test/fixtures/met_norway.json').readAsStringSync(),
+    );
+    final steps = met['properties']['timeseries'] as List;
+    final now = DateTime.now().toUtc();
+    final shift = DateTime.utc(
+      now.year,
+      now.month,
+      now.day,
+      now.hour,
+    ).difference(DateTime.parse(steps.first['time'] as String));
+    for (final s in steps) {
+      s['time'] = DateTime.parse(s['time'] as String)
+          .add(shift)
+          .toIso8601String();
+    }
+    final client = MockClient(
+      (req) async => req.url.host == 'api.met.no'
+          ? http.Response(
+              jsonEncode(met),
+              200,
+              headers: {'content-type': 'application/json; charset=utf-8'},
+            )
+          : http.Response('down', 503),
+    );
+    await http.runWithClient(() async {
+      await MabalacatWeather.load(refresh: true);
+      await pumpPhone(tester, const Scaffold(body: WeatherTab()));
+    }, () => client);
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('Right now', skipOffstage: false), findsOneWidget);
+    expect(find.text('Rain chance', skipOffstage: false), findsNothing);
+    expect(find.text('Visibility', skipOffstage: false), findsNothing);
+    expect(find.text('Rain, 48 hours', skipOffstage: false), findsNothing);
+    await tester.scrollUntilVisible(find.textContaining('Weather by'), 400);
+    await tester.pump(); // a just-built FutureBuilder gets its data next frame
+    expect(find.textContaining('Weather by MET Norway'), findsOneWidget);
   });
 
   // Keep this test LAST. After it, a deferred tab that a later test opens

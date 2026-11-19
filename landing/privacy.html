@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<!--
+  AgosAlert Privacy Policy. Written for RA 10173 (Data Privacy Act of
+  2012) Sec. 16 "right to be informed" and Google Play's account deletion
+  rule (#delete must stay: Play links straight to it). Keep it TRUE to the
+  code: if the app starts collecting something new (supabase/*.sql, a new
+  service), update this page in the same commit.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Privacy Policy · AgosAlert</title>
+  <meta name="description" content="What AgosAlert collects, why, who sees it, how long it's kept, and how to delete your account.">
+  <meta name="theme-color" content="#05060c">
+  <meta name="color-scheme" content="dark">
+  <link rel="icon" type="image/png" href="img/favicon.png">
+  <link rel="stylesheet" href="legal.css">
+</head>
+<body>
+  <header class="bar">
+    <a href="./" aria-label="AgosAlert home"><img src="img/logo_wordmark_dark.png" alt="agosalert." width="132" height="30"></a>
+    <a class="back" href="./">Back to AgosAlert</a>
+  </header>
+
+  <main>
+    <h1>Privacy Policy</h1>
+    <p class="date">Effective 18 November 2026</p>
+
+    <div class="summary">
+      <p><strong>The short version</strong></p>
+      <ul>
+        <li>Your account is your name, email and barangay. Your password goes to our login provider, who keeps it scrambled (hashed). We never see it.</li>
+        <li>A flood report you post (the spot, photo, note and your name) is <strong>public</strong> for 14 days, then deleted.</li>
+        <li>No ads, no tracking, no analytics. We don't sell your data.</li>
+        <li>You can change your name or <a href="#delete">delete your account</a> at any time, in the app.</li>
+      </ul>
+    </div>
+
+    <h2 id="who">Who we are</h2>
+    <p>AgosAlert is a flood-watch app for Mabalacat City, Pampanga, made by BSIT students as a school capstone project. It is an <strong>unofficial demo</strong>, not an app of the Mabalacat City government. The student team decides what the app collects and why, so under the Data Privacy Act of 2012 (Republic Act No. 10173) we are the personal information controller.</p>
+    <p>Contact for anything on this page: <a href="mailto:wildparchrome@gmail.com">wildparchrome@gmail.com</a>.</p>
+
+    <h2 id="collect">What we collect, and why</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>What</th><th>Why</th><th>Who can see it</th><th>How long</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td data-label="What"><strong>Account:</strong> full name, email, barangay, password (stored hashed by our login provider), account role and status, sign-up date</td>
+            <td data-label="Why">To log you in, show your name on your reports, and put your barangay first</td>
+            <td data-label="Who can see it">You. Admins (for moderation). Your <strong>name and barangay</strong> also appear publicly on your reports.</td>
+            <td data-label="How long">Until you delete your account</td>
+          </tr>
+          <tr>
+            <td data-label="What"><strong>Flood reports:</strong> type, how bad, water depth, barangay, the exact spot (map pin), your note, an optional photo, the photo's date, and when you posted</td>
+            <td data-label="Why">To show everyone where it's flooding</td>
+            <td data-label="Who can see it"><strong>Everyone</strong>, including guests without an account</td>
+            <td data-label="How long">14 days after the photo was taken (or, with no photo, after posting), then deleted automatically. You can delete one sooner.</td>
+          </tr>
+          <tr>
+            <td data-label="What"><strong>Votes:</strong> which reports you marked thumbs up or down</td>
+            <td data-label="Why">To show which reports people trust</td>
+            <td data-label="Who can see it">The totals are shown on each report. The vote records (which account voted) can be read through the app's public database connection.</td>
+            <td data-label="How long">Deleted with the report, or with your account</td>
+          </tr>
+          <tr>
+            <td data-label="What"><strong>Read marks:</strong> which alerts you've opened</td>
+            <td data-label="Why">To show how many alerts are new</td>
+            <td data-label="Who can see it">You</td>
+            <td data-label="How long">Until you delete your account</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p>We use these under Section 12 of the Data Privacy Act: your account data because it's needed for the service you signed up for; your reports and votes because you chose to post them; and keeping the app safe (moderation, stopping abuse) as our legitimate interest.</p>
+
+    <h3>Kept on your own device, not sent to us</h3>
+    <ul>
+      <li>Your login session, so you stay logged in after a reload.</li>
+      <li>Your go-bag checklist ticks (Help tab).</li>
+    </ul>
+    <p>These live in your browser's storage (or the phone app's storage). Logging out or clearing the site's data removes them. We don't use cookies for tracking.</p>
+
+    <h3>Your location</h3>
+    <p>The app only asks for your device's location when you tap <strong>"Use my location"</strong> in the report form. It uses it to place the pin, and saves only the pin you actually post. The weather is always for Mabalacat City, never for your position. In the web app, a photo's hidden details (EXIF data, including any GPS position) are removed before it's uploaded.</p>
+
+    <h3>Things that stay with you</h3>
+    <p>Calling a hotline or SOS opens your phone's own dialer, and the "I'm safe" message goes through your device's share menu to whoever you pick. We don't receive either.</p>
+
+    <h2 id="dont">What we don't do</h2>
+    <ul>
+      <li>No ads, no analytics, no tracking pixels, no selling or renting of your data.</li>
+      <li>We don't ask for your phone number, birthday, or government ID.</li>
+      <li>Other users can't see your email.</li>
+    </ul>
+
+    <h2 id="services">Services we use</h2>
+    <ul>
+      <li><strong>Supabase</strong> runs our database, login and photo storage, and processes data only for us. Its servers are in Singapore (Southeast Asia), outside the Philippines. We stay responsible for your data wherever it's stored, as Section 21 of the Data Privacy Act requires.</li>
+      <li><strong>Gmail</strong> (Google) sends our emails, like password reset links, so Google handles your email address and the message.</li>
+      <li><strong>GitHub Pages</strong> hosts this website and the web app. Like any web host, its servers see your IP address when you visit.</li>
+      <li><strong>Open-Meteo</strong>, with <strong>MET Norway</strong> and <strong>wttr.in</strong> as backups, supplies the weather. Your browser asks them for Mabalacat's weather, so they see your IP address, but not your account or location.</li>
+      <li><strong>Google Fonts</strong> supplies the font of the landing page (not the app), so Google sees your IP address when it loads.</li>
+      <li><strong>Google Maps</strong> opens only if you tap "Directions". Google's own privacy policy applies there.</li>
+    </ul>
+    <p>The map, its code and the 3D Tugak all load from our own site, not from outside map services.</p>
+
+    <h2 id="rights">Your rights</h2>
+    <p>Under the Data Privacy Act you have the right to:</p>
+    <ul>
+      <li><strong>be informed</strong> about how your data is used (this page);</li>
+      <li><strong>access</strong> your data and get a copy of it;</li>
+      <li><strong>correct</strong> it (you can change your name and barangay in the app);</li>
+      <li><strong>object</strong> to how it's used;</li>
+      <li><strong>erase or block</strong> it (see <a href="#delete">Delete your account</a>);</li>
+      <li><strong>data portability</strong>: get your data in a format you can take elsewhere;</li>
+      <li><strong>damages</strong>, if you're harmed by wrong or unlawful use of your data;</li>
+      <li><strong>file a complaint</strong> with the <a href="https://privacy.gov.ph/" target="_blank" rel="noopener">National Privacy Commission</a>.</li>
+    </ul>
+    <p>To use any of these, email <a href="mailto:wildparchrome@gmail.com">wildparchrome@gmail.com</a> from the address on your account, so we know the request is really yours.</p>
+
+    <h2 id="delete">Delete your account</h2>
+    <p><strong>In the app:</strong> avatar (top right) → <strong>Settings</strong> → <strong>Delete account</strong> → confirm. This deletes your account, your flood reports and their photos, your votes and your read marks right away. It can't be undone.</p>
+    <p><strong>Without the app:</strong> email <a href="mailto:wildparchrome@gmail.com?subject=Delete%20my%20AgosAlert%20account">wildparchrome@gmail.com</a> from the address on your account, with the subject "Delete my AgosAlert account". We'll delete the same data and reply when it's done.</p>
+    <p>One exception: when a report expires on its own after 14 days, its photo file can stay in storage until we clean up. Deleting a report yourself, or deleting your account, removes its photos at once.</p>
+
+    <h2 id="security">How we protect it</h2>
+    <ul>
+      <li>Everything travels over HTTPS.</li>
+      <li>Database rules (row-level security) decide what each person can read or change, so the app can't be tricked into showing someone else's email.</li>
+      <li>Passwords are hashed by our login provider. Nobody on the team can read them.</li>
+    </ul>
+    <p>If a data breach ever puts your information at risk, we'll tell you and the National Privacy Commission within 72 hours of finding out, as NPC Circular 16-03 requires.</p>
+
+    <h2 id="kids">Children</h2>
+    <p>Guests can use AgosAlert without an account. If you're under 18, ask a parent or guardian before you make an account or post a report. If you think a child made an account without that, email us and we'll delete it.</p>
+
+    <h2 id="changes">Changes to this page</h2>
+    <p>If we change what we collect or why, we'll update this page and its date first. If a change is big, the app will say so before it applies to you.</p>
+  </main>
+
+  <footer>
+    <div>
+      <a href="terms.html">Terms of Use</a>
+      <a href="privacy.html">Privacy Policy</a>
+      <a href="takedown.html">Copyright and takedown</a>
+      <a href="./">AgosAlert home</a>
+      <span>Unofficial demo. Not from the Mabalacat City government.</span>
+    </div>
+  </footer>
+</body>
+</html>

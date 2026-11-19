@@ -7,7 +7,9 @@ import '../services/auth.dart';
 import '../services/session.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/links.dart' show openLegalPage;
 import '../widgets/tugak.dart';
+import 'account.dart' show forgotPassword;
 import 'home_shell.dart';
 
 /// ============================================================
@@ -47,7 +49,9 @@ String tugakAuthLine(Object e) {
 }
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  /// A line for Tugak to open with (a reset link that didn't work).
+  final String? message;
+  const LoginScreen({super.key, this.message});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -61,7 +65,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _signUp = false;
   bool _showPassword = false;
   bool _busy = false;
-  String? _error;
+  late String? _error = widget.message;
 
   @override
   void dispose() {
@@ -203,6 +207,7 @@ class _LoginScreenState extends State<LoginScreen> {
             loading: _busy,
             onPressed: _submit,
           ),
+          if (_signUp) ...[const SizedBox(height: 12), _privacyNotice(c)],
           const SizedBox(height: 14),
           _modeSwitch(c),
           const SizedBox(height: 6),
@@ -375,6 +380,26 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       ),
     ),
+    if (!_signUp)
+      Align(
+        alignment: Alignment.centerRight,
+        child: PressableScale(
+          onTap: _busy
+              ? null
+              : () => forgotPassword(context, email: _email.text),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 10, 4, 0),
+            child: Text(
+              'Forgot password?',
+              style: TextStyle(
+                color: c.accent,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+      ),
     if (_signUp) ...[
       const SizedBox(height: 10),
       BarangayDropdown(
@@ -383,6 +408,43 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     ],
   ];
+
+  // The short, first layer of the privacy notice (NPC Circular 2023-07's
+  // "layered notice"): the key facts at sign-up, the full pages one tap away.
+  Widget _privacyNotice(AppColors c) {
+    Widget link(String label, String page) => PressableScale(
+      onTap: () => openLegalPage(context, page),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: c.accent,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+    return Column(
+      children: [
+        Text(
+          'Your name, email and barangay make your account. What you report '
+          '(the spot, photo and note) is public with your name for 14 days. '
+          'By creating an account you agree to the Terms.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: c.textSecondary, fontSize: 13, height: 1.4),
+        ),
+        Wrap(
+          alignment: WrapAlignment.center,
+          children: [
+            link('Terms of Use', 'terms'),
+            link('Privacy Policy', 'privacy'),
+          ],
+        ),
+      ],
+    );
+  }
 
   // "New to AgosAlert? Create an account" / "Have an account? Log in".
   Widget _modeSwitch(AppColors c) {

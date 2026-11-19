@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart' show CupertinoIcons, CupertinoSwitch;
 
+import '../services/auth.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/agos_icons.dart';
+import 'account.dart';
 
 /// ============================================================
 /// SETTINGS — appearance, notifications, location
@@ -35,6 +37,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
             children: [
+              // Real (saved to the users row), unlike the preview toggles below.
+              if (!isGuest) ...[
+                const FieldLabel('Account'),
+                AppCard(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Column(
+                    children: [
+                      _row(
+                        c,
+                        CupertinoIcons.person_fill,
+                        'Name',
+                        me!.fullName,
+                        () => editDisplayName(
+                          context,
+                          onSaved: () => setState(() {}),
+                        ),
+                      ),
+                      _divider(c),
+                      _row(
+                        c,
+                        CupertinoIcons.mail_solid,
+                        'Email',
+                        me!.email,
+                        null,
+                      ),
+                      _divider(c),
+                      _row(
+                        c,
+                        CupertinoIcons.lock_fill,
+                        'Password',
+                        'Change',
+                        () => showChangePassword(context),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
               const FieldLabel('Appearance'),
               ValueListenableBuilder<ThemeMode>(
                 valueListenable: themeNotifier,
@@ -149,9 +189,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 20),
               Text(
-                'Settings are a preview and reset when the app reloads.',
+                'Notifications, location and the barangay here are a preview '
+                'and reset when the app reloads.',
                 style: TextStyle(color: c.textSecondary, fontSize: 11),
               ),
+              if (!isGuest) ...[
+                const SizedBox(height: 24),
+                AppCard(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: _row(
+                    c,
+                    CupertinoIcons.trash_fill,
+                    'Delete account',
+                    null,
+                    () => confirmDeleteAccount(context),
+                    danger: true,
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -193,6 +248,60 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 fontWeight: FontWeight.w700,
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // An iOS Settings row: icon tile, title, value on the right, and a
+  // chevron when it opens something.
+  Widget _row(
+    AppColors c,
+    IconData icon,
+    String title,
+    String? value,
+    VoidCallback? onTap, {
+    bool danger = false,
+  }) {
+    return PressableScale(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(
+          children: [
+            IconBadge(
+              icon,
+              danger ? kDanger : c.accent,
+              size: 36,
+              squircle: true,
+            ),
+            const SizedBox(width: 14),
+            Text(
+              title,
+              style: TextStyle(
+                color: danger ? kDanger : c.textPrimary,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                value ?? '',
+                textAlign: TextAlign.right,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: c.textSecondary, fontSize: 15),
+              ),
+            ),
+            if (onTap != null && !danger) ...[
+              const SizedBox(width: 6),
+              Icon(
+                CupertinoIcons.chevron_right,
+                size: 16,
+                color: c.textSecondary,
+              ),
+            ],
           ],
         ),
       ),

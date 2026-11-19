@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show AuthException;
 
 import '../services/auth.dart';
 import '../theme.dart';
@@ -145,5 +146,440 @@ void confirmLogout(BuildContext context) {
         ],
       );
     },
+  );
+}
+
+/// Settings > Account > Name: changes the name shown on the user's
+/// reports (the `full_name` column; 01_users.sql lets users update it).
+void editDisplayName(BuildContext context, {VoidCallback? onSaved}) {
+  final name = TextEditingController(text: me!.fullName);
+  var busy = false;
+  String? error;
+  showAppSheet(
+    context,
+    builder: (sheet) => StatefulBuilder(
+      builder: (sheet, setSheet) {
+        final c = AppColors(sheet);
+        Future<void> save() async {
+          final value = name.text.trim();
+          if (value.isEmpty) {
+            return setSheet(() => error = 'Your name can\'t be empty.');
+          }
+          if (value.length > 100) {
+            return setSheet(() => error = 'Keep it under 100 characters.');
+          }
+          setSheet(() {
+            busy = true;
+            error = null;
+          });
+          try {
+            await saveMyName(value);
+            onSaved?.call();
+            if (sheet.mounted) Navigator.of(sheet).pop();
+          } catch (_) {
+            setSheet(() {
+              busy = false;
+              error = 'Couldn\'t save. Check your connection and try again.';
+            });
+          }
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Your name',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: c.textPrimary,
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Everyone sees it on your flood reports.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: c.textSecondary, fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            AppTextField(
+              hint: 'Full name',
+              icon: CupertinoIcons.person,
+              controller: name,
+              autofillHints: const [AutofillHints.name],
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => save(),
+            ),
+            if (error != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                error!,
+                style: const TextStyle(color: kDanger, fontSize: 13),
+              ),
+            ],
+            const SizedBox(height: 16),
+            PrimaryButton(label: 'Save', loading: busy, onPressed: save),
+            const SizedBox(height: 6),
+            SecondaryButton(
+              label: 'Cancel',
+              onPressed: () => Navigator.of(sheet).pop(),
+            ),
+          ],
+        );
+      },
+    ),
+  );
+}
+
+/// Settings > Delete account. Asks first, then deletes everything
+/// (services/auth.dart deleteMyAccount) and goes to the login screen.
+void confirmDeleteAccount(BuildContext context) {
+  var busy = false;
+  String? error;
+  showAppSheet(
+    context,
+    builder: (sheet) => StatefulBuilder(
+      builder: (sheet, setSheet) {
+        final c = AppColors(sheet);
+        return Column(
+          children: [
+            const IconBadge(CupertinoIcons.trash_fill, kDanger, size: 60),
+            const SizedBox(height: 14),
+            Text(
+              'Delete your account?',
+              style: TextStyle(
+                color: c.textPrimary,
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'This deletes your account, your flood reports and their '
+              'photos, and your votes. It can\'t be undone.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: c.textSecondary,
+                fontSize: 13,
+                height: 1.45,
+              ),
+            ),
+            if (error != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                error!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: kDanger, fontSize: 13),
+              ),
+            ],
+            const SizedBox(height: 20),
+            PrimaryButton(
+              label: 'Delete my account',
+              color: kDanger,
+              loading: busy,
+              onPressed: () async {
+                final nav = Navigator.of(context);
+                setSheet(() {
+                  busy = true;
+                  error = null;
+                });
+                try {
+                  await deleteMyAccount();
+                  nav.pushAndRemoveUntil(
+                    slideRoute(const LoginScreen()),
+                    (_) => false,
+                  );
+                } catch (e) {
+                  setSheet(() {
+                    busy = false;
+                    error = '$e'.contains('admin_has_alerts')
+                        ? 'Admin accounts that posted alerts can\'t be '
+                              'deleted here. Email us (see Privacy Policy).'
+                        : 'Couldn\'t delete it. Check your connection and '
+                              'try again.';
+                  });
+                }
+              },
+            ),
+            const SizedBox(height: 6),
+            SecondaryButton(
+              label: 'Cancel',
+              onPressed: busy ? null : () => Navigator.of(sheet).pop(),
+            ),
+          ],
+        );
+      },
+    ),
+  );
+}
+
+// Plain-words message for a failed reset / password change, from
+// Supabase's error codes (not its English messages).
+String _passwordError(Object e) {
+  if (e is! AuthException) {
+    return 'Couldn\'t reach the server. Check your connection and try again.';
+  }
+  return switch (e.code) {
+    'weak_password' =>
+      'That password is too easy to guess. Add numbers or symbols.',
+    'same_password' => 'That\'s your current password. Pick a new one.',
+    'invalid_credentials' => 'Your current password is wrong.',
+    'over_email_send_rate_limit' || 'over_request_rate_limit' =>
+      'Too many tries. Wait a few minutes, then try again.',
+    'email_address_invalid' ||
+    'validation_failed' => 'That email doesn\'t look right. Check for typos.',
+    _ => e.message,
+  };
+}
+
+/// Login screen > "Forgot password?": emails a reset link. [email] fills
+/// the field with what's already typed in the login form.
+void forgotPassword(BuildContext context, {String email = ''}) {
+  final field = TextEditingController(text: email.trim());
+  var busy = false;
+  var sent = false;
+  String? error;
+  showAppSheet(
+    context,
+    builder: (sheet) => StatefulBuilder(
+      builder: (sheet, setSheet) {
+        final c = AppColors(sheet);
+        Future<void> send() async {
+          if (!field.text.contains('@')) {
+            return setSheet(() => error = 'Type the email you log in with.');
+          }
+          setSheet(() {
+            busy = true;
+            error = null;
+          });
+          try {
+            await sendPasswordReset(field.text);
+            setSheet(() => sent = true);
+          } catch (e) {
+            setSheet(() {
+              busy = false;
+              error = _passwordError(e);
+            });
+          }
+        }
+
+        final title = TextStyle(
+          color: c.textPrimary,
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+        );
+        final body = TextStyle(
+          color: c.textSecondary,
+          fontSize: 13,
+          height: 1.45,
+        );
+        if (sent) {
+          // Same answer whether or not the email has an account (Supabase
+          // doesn't say either), so nobody can test who's signed up.
+          return Column(
+            children: [
+              const IconBadge(CupertinoIcons.mail_solid, kBlue, size: 60),
+              const SizedBox(height: 14),
+              Text('Check your email', style: title),
+              const SizedBox(height: 6),
+              Text(
+                'If ${field.text.trim()} has an account, a reset link is on '
+                'its way. It works once, for 1 hour. Not there? Check Spam.',
+                textAlign: TextAlign.center,
+                style: body,
+              ),
+              const SizedBox(height: 20),
+              PrimaryButton(
+                label: 'Done',
+                onPressed: () => Navigator.of(sheet).pop(),
+              ),
+            ],
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Reset your password',
+              textAlign: TextAlign.center,
+              style: title,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'We\'ll email you a link to set a new one.',
+              textAlign: TextAlign.center,
+              style: body,
+            ),
+            const SizedBox(height: 16),
+            AppTextField(
+              hint: 'Email',
+              icon: CupertinoIcons.mail,
+              controller: field,
+              keyboardType: TextInputType.emailAddress,
+              autofillHints: const [AutofillHints.email],
+              textInputAction: TextInputAction.send,
+              onSubmitted: (_) => send(),
+            ),
+            if (error != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                error!,
+                style: const TextStyle(color: kDanger, fontSize: 13),
+              ),
+            ],
+            const SizedBox(height: 16),
+            PrimaryButton(
+              label: 'Send reset link',
+              color: kBlue,
+              loading: busy,
+              onPressed: send,
+            ),
+            const SizedBox(height: 6),
+            SecondaryButton(
+              label: 'Cancel',
+              onPressed: () => Navigator.of(sheet).pop(),
+            ),
+          ],
+        );
+      },
+    ),
+  );
+}
+
+/// Settings > Account > Password, and (afterReset) what a reset email's
+/// link opens: type the new password twice. Settings also asks for the
+/// current one, so someone holding your unlocked phone can't lock you
+/// out; the reset link skips it (that person forgot it).
+void showChangePassword(BuildContext context, {bool afterReset = false}) {
+  final current = TextEditingController();
+  final first = TextEditingController();
+  final again = TextEditingController();
+  var busy = false;
+  var show = false;
+  String? error;
+  showAppSheet(
+    context,
+    builder: (sheet) => StatefulBuilder(
+      builder: (sheet, setSheet) {
+        final c = AppColors(sheet);
+        Future<void> save() async {
+          if (!afterReset && current.text.isEmpty) {
+            return setSheet(() => error = 'Type your current password first.');
+          }
+          if (first.text.length < 6) {
+            return setSheet(() => error = 'Use at least 6 characters.');
+          }
+          if (first.text != again.text) {
+            return setSheet(() => error = 'The two passwords don\'t match.');
+          }
+          setSheet(() {
+            busy = true;
+            error = null;
+          });
+          try {
+            await changePassword(
+              first.text,
+              current: afterReset ? null : current.text,
+            );
+            if (!sheet.mounted) return;
+            Navigator.of(sheet).pop();
+            if (context.mounted) {
+              showSuccessDialog(
+                context,
+                title: 'Password changed',
+                message: 'Use the new one next time you log in.',
+              );
+            }
+          } catch (e) {
+            setSheet(() {
+              busy = false;
+              error = _passwordError(e);
+            });
+          }
+        }
+
+        // The show/hide eye sits on the top field and shows them all.
+        Widget field(
+          TextEditingController ctl,
+          String hint, {
+          bool top = false,
+          bool last = false,
+        }) => AppTextField(
+          hint: hint,
+          icon: CupertinoIcons.lock,
+          controller: ctl,
+          obscure: !show,
+          autofillHints: [
+            ctl == current ? AutofillHints.password : AutofillHints.newPassword,
+          ],
+          textInputAction: last ? TextInputAction.done : TextInputAction.next,
+          onSubmitted: last ? (_) => save() : null,
+          suffix: !top
+              ? null
+              : PressableScale(
+                  onTap: () => setSheet(() => show = !show),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Icon(
+                      show ? CupertinoIcons.eye_slash : CupertinoIcons.eye,
+                      color: c.textSecondary,
+                      size: 20,
+                    ),
+                  ),
+                ),
+        );
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              afterReset ? 'Set a new password' : 'Change password',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: c.textPrimary,
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              afterReset
+                  ? 'You\'re logged in from the email link. Pick a new password.'
+                  : 'At least 6 characters.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: c.textSecondary, fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            AutofillGroup(
+              child: Column(
+                children: [
+                  if (!afterReset) ...[
+                    field(current, 'Current password', top: true),
+                    const SizedBox(height: 10),
+                  ],
+                  field(first, 'New password', top: afterReset),
+                  const SizedBox(height: 10),
+                  field(again, 'New password again', last: true),
+                ],
+              ),
+            ),
+            if (error != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                error!,
+                style: const TextStyle(color: kDanger, fontSize: 13),
+              ),
+            ],
+            const SizedBox(height: 16),
+            PrimaryButton(label: 'Save', loading: busy, onPressed: save),
+            const SizedBox(height: 6),
+            SecondaryButton(
+              label: afterReset ? 'Later' : 'Cancel',
+              onPressed: () => Navigator.of(sheet).pop(),
+            ),
+          ],
+        );
+      },
+    ),
   );
 }

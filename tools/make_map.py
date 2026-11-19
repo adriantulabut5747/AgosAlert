@@ -247,6 +247,11 @@ def step_lib():
     for name in ('maplibre-gl.js', 'maplibre-gl.css'):
         with open(os.path.join(OUT, name), 'wb') as f:
             f.write(fetch(base + name))
+    # BSD-3 asks redistributions to carry the licence text; the app's
+    # licence page reads this file.
+    lic = f'https://raw.githubusercontent.com/maplibre/maplibre-gl-js/v{MAPLIBRE_VERSION}/LICENSE.txt'
+    with open(os.path.join(OUT, 'LICENSE.txt'), 'wb') as f:
+        f.write(fetch(lic))
     print('  maplibre-gl', MAPLIBRE_VERSION)
 
 

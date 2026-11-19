@@ -31,13 +31,15 @@
     el.style.boxShadow = out.join(',');
   }
   // Phones (Nov 14 2026, Adrian: "really really subtle"): dimmer, fewer
-  // big ones, and no sparkles (the + shapes looked like noise up close).
+  // big ones. Nov 19 2026 (Adrian: "annoying and ugly"): about half the
+  // stars everywhere, and no + sparkles on any screen (they looked like
+  // noise); the sparkle loop below stays at 0 so it's easy to bring back.
   var phone = innerWidth < 600;
-  starLayer(document.querySelector('.stars.s1'), 260, phone ? 0.3 : 0.55);
-  starLayer(document.querySelector('.stars.s2'), phone ? 50 : 90, phone ? 0.38 : 0.8);
-  starLayer(document.querySelector('.stars.s3'), phone ? 10 : 34, phone ? 0.45 : 1);
+  starLayer(document.querySelector('.stars.s1'), phone ? 120 : 130, phone ? 0.3 : 0.55);
+  starLayer(document.querySelector('.stars.s2'), phone ? 25 : 40, phone ? 0.38 : 0.8);
+  starLayer(document.querySelector('.stars.s3'), phone ? 5 : 14, phone ? 0.45 : 1);
   var sky = document.querySelector('.sky');
-  for (var s = 0; s < (phone ? 0 : 9); s++) {
+  for (var s = 0; s < 0; s++) {
     var sp = document.createElement('i');
     sp.className = 'spark';
     sp.style.left = (Math.random() * 96 + 2) + '%';
@@ -143,13 +145,93 @@
   });
 
   /* ---------------- Live weather ----------------
-     Same request and the same rules as lib/services/weather.dart. */
+     Same sources and the same rules as lib/services/weather.dart and
+     weather_backups.dart: Open-Meteo, then MET Norway, then wttr.in.
+     Each source is read into one shape, today only; rainChance is null
+     on MET Norway (it has none). */
 
-  var WEATHER_URL = 'https://api.open-meteo.com/v1/forecast'
-    + '?latitude=15.2236&longitude=120.5714'
-    + '&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m,is_day'
-    + '&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum'
-    + '&forecast_days=1&timezone=Asia%2FManila';
+  // "2026-11-18T21:05" in Manila (UTC+8, no daylight saving).
+  function manilaIso(ms) { return new Date(ms + 8 * 36e5).toISOString().slice(0, 16); }
+
+  // sunTimes() in weather_backups.dart (NOAA): sunrise and sunset in
+  // Mabalacat as minutes after Manila midnight. MET Norway doesn't send them.
+  function sunMinutes(dateIso) {
+    var rad = Math.PI / 180, lat = 15.2236, lng = 120.5714;
+    var y = +dateIso.slice(0, 4);
+    var n = (Date.UTC(y, +dateIso.slice(5, 7) - 1, +dateIso.slice(8, 10)) - Date.UTC(y, 0, 1)) / 864e5;
+    var g = 2 * Math.PI / 365 * n;
+    var eq = 229.18 * (0.000075 + 0.001868 * Math.cos(g) - 0.032077 * Math.sin(g) - 0.014615 * Math.cos(2 * g) - 0.040849 * Math.sin(2 * g));
+    var decl = 0.006918 - 0.399912 * Math.cos(g) + 0.070257 * Math.sin(g) - 0.006758 * Math.cos(2 * g)
+      + 0.000907 * Math.sin(2 * g) - 0.002697 * Math.cos(3 * g) + 0.00148 * Math.sin(3 * g);
+    var ha = Math.acos(Math.cos(90.833 * rad) / (Math.cos(lat * rad) * Math.cos(decl)) - Math.tan(lat * rad) * Math.tan(decl)) / rad;
+    return [720 - 4 * (lng + ha) - eq + 480, 720 - 4 * (lng - ha) - eq + 480];
+  }
+  function minutesOf(iso) { return +iso.slice(11, 13) * 60 + +iso.slice(14, 16); }
+
+  // _metCode() in weather_backups.dart: MET symbol -> WMO code.
+  function metCode(symbol) {
+    var s = symbol.split('_')[0];
+    if (s.indexOf('thunder') >= 0) return 95;
+    var codes = { clearsky: 0, fair: 1, partlycloudy: 2, cloudy: 3, fog: 45, lightrain: 61, rain: 63, heavyrain: 65,
+      lightrainshowers: 80, rainshowers: 81, heavyrainshowers: 82 };
+    return s in codes ? codes[s] : 71;
+  }
+
+  // _wwoCode() in weather_backups.dart: wttr.in code -> WMO code.
+  function wwoCode(c) {
+    var map = { 113: 0, 116: 2, 119: 3, 122: 3, 143: 45, 248: 45, 260: 45, 263: 51, 266: 51, 281: 51, 284: 51,
+      293: 61, 296: 61, 299: 63, 302: 63, 305: 65, 308: 65, 176: 80, 353: 80, 356: 81, 359: 82,
+      200: 95, 386: 95, 389: 95, 392: 95, 395: 95 };
+    return c in map ? map[c] : 71;
+  }
+
+  var SOURCES = [
+    ['https://api.open-meteo.com/v1/forecast?latitude=15.2236&longitude=120.5714'
+      + '&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,is_day'
+      + '&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum'
+      + '&forecast_days=1&timezone=Asia%2FManila',
+    function (j) {
+      var c = j.current, d = j.daily;
+      return { source: 'Open-Meteo', time: c.time, code: c.weather_code, isDay: c.is_day === 1,
+        temp: c.temperature_2m, feels: c.apparent_temperature, humidity: c.relative_humidity_2m,
+        wind: c.wind_speed_10m, max: d.temperature_2m_max[0], min: d.temperature_2m_min[0],
+        rainChance: d.precipitation_probability_max[0] || 0, rainSum: d.precipitation_sum[0] || 0 };
+    }],
+    ['https://api.met.no/weatherapi/locationforecast/2.0/complete?lat=15.2236&lon=120.5714', function (j) {
+      var now = manilaIso(Date.now()), today = now.slice(0, 10);
+      var steps = j.properties.timeseries.map(function (s) { return [manilaIso(Date.parse(s.time)), s.data]; })
+        .filter(function (s) { return s[0].slice(0, 13) >= now.slice(0, 13); });
+      var x = steps[0][1].instant.details, max = -99, min = 99, rain = 0, code = 0;
+      steps.forEach(function (s, i) {
+        if (s[0].slice(0, 10) !== today) return;
+        var d = s[1], t = d.instant.details.air_temperature;
+        max = Math.max(max, t); min = Math.min(min, t);
+        // the step's rain block runs to the next step: 1 h, later 6 h
+        var gap = steps[i + 1] ? (Date.parse(steps[i + 1][0]) - Date.parse(s[0])) / 36e5 : 6;
+        var b = gap <= 1 ? d.next_1_hours : d.next_6_hours;
+        if (!b) return;
+        rain += b.details.precipitation_amount;
+        if (b.details.air_temperature_max != null) max = Math.max(max, b.details.air_temperature_max);
+        if (b.details.air_temperature_min != null) min = Math.min(min, b.details.air_temperature_min);
+        code = Math.max(code, metCode(b.summary.symbol_code));
+      });
+      var sun = sunMinutes(now), m = minutesOf(now);
+      return { source: 'MET Norway', time: now, code: metCode(steps[0][1].next_1_hours.summary.symbol_code),
+        isDay: m >= sun[0] && m < sun[1], temp: x.air_temperature, feels: x.apparent_air_temperature,
+        humidity: Math.round(x.relative_humidity), wind: x.wind_speed * 3.6, max: max, min: min,
+        rainChance: null, rainSum: rain };
+    }],
+    ['https://wttr.in/15.2236,120.5714?format=j1', function (j) {
+      var c = j.current_condition[0], d = j.weather[0], now = manilaIso(Date.now());
+      var clock = function (s) { var p = /(\d+):(\d+) ([AP]M)/.exec(s); return (+p[1] % 12 + (p[3] === 'PM' ? 12 : 0)) * 60 + +p[2]; };
+      var m = minutesOf(now), rain = 0, chance = 0;
+      d.hourly.forEach(function (h) { rain += +h.precipMM; chance = Math.max(chance, +h.chanceofrain); });
+      return { source: 'wttr.in', time: now, code: wwoCode(+c.weatherCode),
+        isDay: m >= clock(d.astronomy[0].sunrise) && m < clock(d.astronomy[0].sunset),
+        temp: +c.temp_C, feels: +c.FeelsLikeC, humidity: +c.humidity, wind: +c.windspeedKmph,
+        max: +d.maxtempC, min: +d.mintempC, rainChance: chance, rainSum: rain };
+    }],
+  ];
 
   // weatherInfo() in weather.dart: WMO code -> label + CupertinoIcons name.
   function weatherInfo(code, isDay) {
@@ -215,63 +297,72 @@
   var card = $('weatherCard'), heroSay = $('heroSay');
   var firstLoad = true, lastLine = '';
 
-  function showWeather(json) {
-    var cur = json.current, day = json.daily;
-    var code = cur.weather_code, isDay = cur.is_day === 1;
+  function showWeather(w) {
+    var code = w.code, isDay = w.isDay;
     var info = weatherInfo(code, isDay), grad = weatherGradient(code, isDay);
-    var max = Math.round(day.temperature_2m_max[0]), min = Math.round(day.temperature_2m_min[0]);
-    var rainChance = day.precipitation_probability_max[0] || 0;
-    var rainSum = (day.precipitation_sum[0] || 0).toFixed(1);
+    var max = Math.round(w.max), min = Math.round(w.min);
+    // MET Norway has no rain chance: say so instead of a made-up 0%.
+    var rainChance = w.rainChance, chanceText = rainChance == null ? 'n/a' : rainChance + '%';
+    var rainSum = w.rainSum.toFixed(1);
 
     card.style.background = 'linear-gradient(135deg, ' + grad[0] + ', ' + grad[1] + ')';
-    $('wTime').textContent = formatTime(cur.time);
+    $('wTime').textContent = formatTime(w.time);
     $('wLabel').textContent = info[0];
     $('wIcon').dataset.i = info[1];
-    $('wSub').textContent = 'H ' + max + '°  ·  L ' + min + '°  ·  Feels ' + Math.round(cur.apparent_temperature) + '°';
-    $('wRainChance').textContent = rainChance + '%';
+    $('wSub').textContent = 'H ' + max + '°  ·  L ' + min + '°  ·  Feels ' + Math.round(w.feels) + '°';
+    $('wRainChance').textContent = chanceText;
     $('wRainSum').textContent = rainSum + ' mm';
-    $('wHumidity').textContent = cur.relative_humidity_2m + '%';
-    $('wWind').textContent = Math.round(cur.wind_speed_10m) + ' km/h';
+    $('wHumidity').textContent = w.humidity + '%';
+    $('wWind').textContent = Math.round(w.wind) + ' km/h';
 
-    var temp = cur.temperature_2m;
+    var temp = w.temp;
     if (firstLoad) setTimeout(function () { countUp($('wTemp'), temp); }, reduceMotion ? 0 : 900);
     else $('wTemp').textContent = Math.round(temp);
     firstLoad = false;
     card.dataset.state = 'ready';
 
-    var outlook = floodOutlook(code, day.precipitation_sum[0] || 0, rainChance);
+    var outlook = floodOutlook(code, w.rainSum, rainChance || 0);
     $('outlookChip').dataset.risk = outlook[0];
     $('oLevel').textContent = outlook[1];
 
     // 01 Weather: the same numbers, and which rule matched today.
-    $('hwChance').textContent = rainChance + '%';
+    $('hwChance').textContent = chanceText;
     $('hwSum').textContent = rainSum + ' mm';
     // the sky in words as the value, the raw code in the label (phones:
     // "1 · partly cloudy" ran out of its box, Nov 14 2026)
     $('hwCode').textContent = info[0];
     $('hwCodeLabel').textContent = 'Weather code ' + code;
-    $('hwTime').textContent = 'Live · updated ' + formatTime(cur.time);
+    $('hwTime').textContent = 'Live · updated ' + formatTime(w.time) + ' · ' + w.source;
     all('.rule').forEach(function (r) { r.classList.toggle('is-today', r.dataset.level === outlook[0]); });
 
     $('weatherText').textContent = 'Live weather in Mabalacat City: ' + Math.round(temp) + ' degrees, '
-      + info[0].toLowerCase() + ', ' + rainChance + '% chance of rain today. Flood outlook today: '
+      + info[0].toLowerCase() + (rainChance == null ? '' : ', ' + rainChance + '% chance of rain today') + '. Flood outlook today: '
       + outlook[1].toLowerCase() + '.';
 
-    var line = tugakLine(code, isDay, outlook[0], rainChance);
+    var line = tugakLine(code, isDay, outlook[0], rainChance || 0);
     if (line !== lastLine) {
       lastLine = line;
       setTimeout(function () { typeLine(heroSay, line); }, reduceMotion ? 0 : 1300); // after the hero's entrance
     }
   }
 
-  function loadWeather() {
+  // Source i, or the next one if it fails or takes over 6 s.
+  function fetchWeather(i) {
+    if (i === SOURCES.length) return Promise.reject(new Error('Every weather source failed'));
     var ctrl = new AbortController();
-    var timer = setTimeout(function () { ctrl.abort(); }, 10000);
-    fetch(WEATHER_URL, { signal: ctrl.signal })
+    var timer = setTimeout(function () { ctrl.abort(); }, 6000);
+    return fetch(SOURCES[i][0], { signal: ctrl.signal })
       .then(function (res) {
         if (!res.ok) throw new Error('Weather API returned ' + res.status);
         return res.json();
       })
+      .then(SOURCES[i][1])
+      .finally(function () { clearTimeout(timer); })
+      .catch(function () { return fetchWeather(i + 1); });
+  }
+
+  function loadWeather() {
+    fetchWeather(0)
       .then(showWeather)
       .catch(function () {
         // Keep the last good reading if there is one. Otherwise say so
@@ -280,17 +371,16 @@
         card.dataset.state = 'error';
         $('wTemp').textContent = '–';
         $('wLabel').textContent = 'Weather unavailable';
-        $('wSub').textContent = 'Couldn’t reach Open-Meteo. Reload to try again.';
+        $('wSub').textContent = 'Couldn’t reach any weather service. Reload to try again.';
         ['wRainChance', 'wRainSum', 'wHumidity', 'wWind', 'hwChance', 'hwSum', 'hwCode'].forEach(function (id) {
           $(id).textContent = '–';
         });
         $('outlookChip').dataset.risk = 'error';
         $('oLevel').textContent = 'Unavailable';
-        $('hwTime').textContent = 'Couldn’t reach Open-Meteo just now. Reload the page to try again.';
+        $('hwTime').textContent = 'Couldn’t reach Open-Meteo or its backups just now. Reload the page to try again.';
         document.querySelector('.reading-foot .live-dot').hidden = true;
         typeLine(heroSay, 'I can’t reach the weather right now. Reload in a bit, or open the app.');
-      })
-      .finally(function () { clearTimeout(timer); });
+      });
   }
   loadWeather();
   setInterval(loadWeather, 10 * 60 * 1000); // Open-Meteo updates every 15 min

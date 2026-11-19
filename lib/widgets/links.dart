@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:latlong2/latlong.dart';
@@ -17,6 +18,22 @@ Future<void> openDirections(BuildContext context, LatLng point) async {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Couldn\'t open Google Maps.')),
     );
+  }
+}
+
+/// The legal pages live on the landing site (landing/privacy.html,
+/// terms.html, takedown.html), one level above the app's app/ folder,
+/// so one copy serves the app, the landing footer and Google Play.
+/// Phone builds have no "above", so they use the live site.
+Future<void> openLegalPage(BuildContext context, String page) async {
+  final url = kIsWeb
+      ? Uri.base.resolve('../$page.html')
+      : Uri.parse('https://adriantulabut5747.github.io/AgosAlert/$page.html');
+  final ok = await launchUrl(url, webOnlyWindowName: '_blank');
+  if (!ok && context.mounted) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Couldn\'t open the page.')));
   }
 }
 

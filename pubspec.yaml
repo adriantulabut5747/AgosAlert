@@ -70,6 +70,10 @@ flutter:
   assets:
     - assets/images/
     - assets/images/tugak/
+    # licence texts for About > Open-source licences (main.dart)
+    - assets/fonts/Inter-LICENSE.txt
+    - web/map/LICENSE.txt
+    - web/tugak/three/LICENSE.txt
 
   fonts:
     - family: Inter

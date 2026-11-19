@@ -332,6 +332,20 @@ Future<void> deleteReport(FloodReport r) async {
   await loadReports();
 }
 
+/// Deletes every photo in the user's folder (before deleting the account,
+/// whose cascade removes the report rows but can't touch Storage).
+/// shortcut: one list call = the first 1000 files, far more than 14 days
+/// of reports; page through list() if someone ever posts more.
+Future<void> deleteAllMyPhotos() async {
+  final files = await _db.storage
+      .from(_bucket)
+      .list(path: me!.userId, searchOptions: const SearchOptions(limit: 1000));
+  if (files.isEmpty) return;
+  await _db.storage.from(_bucket).remove([
+    for (final f in files) '${me!.userId}/${f.name}',
+  ]);
+}
+
 /// What to show when posting fails.
 String reportErrorMessage(Object e) {
   if ('$e'.contains('more than 14 days old')) {
