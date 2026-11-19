@@ -185,6 +185,26 @@
     return c in map ? map[c] : 71;
   }
 
+  var CHANCE_URL = 'https://api.open-meteo.com/v1/forecast?latitude=15.2236&longitude=120.5714'
+    + '&hourly=precipitation_probability&models=ecmwf_ifs025,gfs_seamless,icon_seamless,gem_seamless,ukmo_seamless'
+    + '&forecast_days=2&timezone=Asia%2FManila';
+
+  // weather.dart's averageChances + dayChance: each hour's chance = the models' average
+  // (the entry at 8:00 is for 7-8); today's = the highest of the hours not over yet.
+  function todayChance(m, now) {
+    var h = m.hourly, thisHour = now.slice(0, 13) + ':00', best = null;
+    var cols = Object.keys(h).filter(function (k) { return k.indexOf('precipitation_probability_') === 0; });
+    h.time.forEach(function (t, i) {
+      var hour = manilaIso(Date.parse(t + ':00+08:00') - 36e5);
+      if (hour < thisHour || hour.slice(0, 10) !== now.slice(0, 10)) return;
+      var vals = cols.map(function (k) { return h[k][i]; }).filter(function (v) { return v != null; });
+      if (!vals.length) return;
+      var avg = Math.round(vals.reduce(function (a, b) { return a + b; }, 0) / vals.length);
+      best = Math.max(best || 0, avg);
+    });
+    return best;
+  }
+
   var SOURCES = [
     ['https://api.open-meteo.com/v1/forecast?latitude=15.2236&longitude=120.5714'
       + '&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,is_day'
@@ -192,10 +212,15 @@
       + '&forecast_days=1&timezone=Asia%2FManila',
     function (j) {
       var c = j.current, d = j.daily;
-      return { source: 'Open-Meteo', time: c.time, code: c.weather_code, isDay: c.is_day === 1,
+      var w = { source: 'Open-Meteo', time: c.time, code: c.weather_code, isDay: c.is_day === 1,
         temp: c.temperature_2m, feels: c.apparent_temperature, humidity: c.relative_humidity_2m,
         wind: c.wind_speed_10m, max: d.temperature_2m_max[0], min: d.temperature_2m_min[0],
         rainChance: d.precipitation_probability_max[0] || 0, rainSum: d.precipitation_sum[0] || 0 };
+      // Same chance as the app (weather.dart): 5 models averaged, ECMWF alone is the wettest.
+      // If that request fails, ECMWF's daily max above stays.
+      return fetch(CHANCE_URL, { signal: AbortSignal.timeout(5000) }).then(function (r) { return r.json(); })
+        .then(function (m) { var p = todayChance(m, c.time); if (p != null) w.rainChance = p; return w; })
+        .catch(function () { return w; });
     }],
     ['https://api.met.no/weatherapi/locationforecast/2.0/complete?lat=15.2236&lon=120.5714', function (j) {
       var now = manilaIso(Date.now()), today = now.slice(0, 10);
