@@ -412,18 +412,19 @@ API, never its own users/password table.
   then the Ports tab → port 8080.
 - Add `--release` to preview at real size (~4 MB instead of ~100 MB for
   debug), but then there's no hot reload.
-- Logo (Nov 13 2026, "A + current"; replaced the "!" with a wave dot):
-  the A of AgosAlert whose crossbar is a kBlue wave running past both
-  legs (that overhang keeps the blue visible at 16 px), the A cut around
-  the wave by a thin gap; wordmark = mark + "agosalert." (Inter
-  ExtraBold, outlined) with a blue dot. App icon = the mark on a black rounded square. SVG
-  masters + usage guide in `brand/`. All logo files (brand SVGs, app,
-  favicon, PWA icons, landing copies) come from `python tools/make_logo.py`
-  (needs Chrome, Pillow, fontTools, skia-pathops): edit the script, never the outputs.
-  `brand/board.html` + `board/slide-*.png` are NOT generated and still show
-  the old "!" mark.
-- The loading screen (the app icon: the A fills with blue water from the
-  bottom, clipped to the A's shape; bubbles, faint wave lines; follows
+- Logo ("Current Alert", back on Nov 19 2026, Adrian; Nov 13-19 it was
+  an "A" with a wave crossbar, see git history): an exclamation mark
+  whose dot is a kBlue wave, "the alert is the water"; wordmark = mark +
+  "agosalert." (Inter ExtraBold, outlined) with a blue dot. App icon = the
+  mark on a black rounded square. SVG masters + usage guide in `brand/`
+  (`brand/board.html` + `board/slide-*.png` show this mark too). All logo
+  files (brand SVGs, app, favicon, PWA icons, landing copies, the loading
+  screen's mark) come from `python tools/make_logo.py` (needs Chrome,
+  Pillow, fontTools): edit the script, never the outputs. The Laravel site
+  gets them through its `tools/copy-from-flutter.sh`.
+- The loading screen (the app icon: blue water rises inside the "!"
+  stem like a flood gauge, clipped to the stem (`#inkShape`), and the
+  wave dot bobs (`.wv`); bubbles, faint wave lines; follows
   `?theme=light`; its mark is written by make_logo.py between the
   LOGO:START / LOGO:END markers) is plain
   HTML/CSS in `web/index.html` (Adrian wants no skeleton card there), driven by `web/flutter_bootstrap.js` (hidden on
