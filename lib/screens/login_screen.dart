@@ -9,7 +9,8 @@ import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/links.dart' show openLegalPage;
 import '../widgets/tugak.dart';
-import 'account.dart' show forgotPassword;
+import '../data/demo_data.dart' show shortDate;
+import 'account.dart' show askKeepAccount, forgotPassword;
 import 'home_shell.dart';
 
 /// ============================================================
@@ -138,6 +139,16 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       } else {
         await logInWithEmail(email: email, password: _password.text);
+        // Waiting to be deleted (Settings > Delete account): ask first.
+        final goes = me?.deletesAt;
+        if (goes != null) {
+          if (!mounted) return;
+          if (!await askKeepAccount(context)) {
+            return _say(
+              'Logged out. Your account still goes for good on ${shortDate(goes)}.',
+            );
+          }
+        }
       }
       // Tells the browser / phone the login worked, so it offers to save
       // the password.

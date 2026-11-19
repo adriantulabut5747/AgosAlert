@@ -319,31 +319,84 @@ Future<void> submitReport({
   await loadReports();
 }
 
-/// Deletes one of the user's own reports and its photo.
-Future<void> deleteReport(FloodReport r) async {
-  await _db.from('flood_reports').delete().eq('report_id', r.reportId);
-  final url = r.photoUrl;
-  if (url != null && url.contains('/$_bucket/')) {
+/// Days a report stays in the trash before the purge function erases it
+/// (supabase/09_trash.sql + functions/purge).
+const kTrashDays = 30;
+
+/// Moves a report to the trash (its owner or an admin): hidden from
+/// everyone, erased with its photo after [kTrashDays].
+Future<void> trashReport(int reportId) async {
+  await _db.rpc('trash_report', params: {'p_report_id': reportId});
+  await loadReports();
+}
+
+/// Takes a report back out of the trash.
+Future<void> restoreReport(int reportId) async {
+  await _db.rpc('restore_report', params: {'p_report_id': reportId});
+  await loadReports();
+}
+
+/// "Delete now" in the trash: the row and its photo, for good.
+Future<void> deleteReportForGood(int reportId, String? photoUrl) async {
+  await _db.from('flood_reports').delete().eq('report_id', reportId);
+  if (photoUrl != null && photoUrl.contains('/$_bucket/')) {
     await _db.storage
         .from(_bucket)
-        .remove([url.split('/$_bucket/').last])
+        .remove([photoUrl.split('/$_bucket/').last])
         .catchError((_) => <FileObject>[]);
   }
   await loadReports();
 }
 
-/// Deletes every photo in the user's folder (before deleting the account,
-/// whose cascade removes the report rows but can't touch Storage).
-/// shortcut: one list call = the first 1000 files, far more than 14 days
-/// of reports; page through list() if someone ever posts more.
-Future<void> deleteAllMyPhotos() async {
-  final files = await _db.storage
-      .from(_bucket)
-      .list(path: me!.userId, searchOptions: const SearchOptions(limit: 1000));
-  if (files.isEmpty) return;
-  await _db.storage.from(_bucket).remove([
-    for (final f in files) '${me!.userId}/${f.name}',
-  ]);
+/// A report in the trash: deleted, or past its 14 days.
+class TrashedReport {
+  final int reportId;
+  final String incidentType;
+  final String barangay;
+  final String? photoUrl;
+  final DateTime? deletedAt;
+  final String? deletedBy;
+  final DateTime expiresAt;
+
+  TrashedReport.fromRow(Map<String, dynamic> row)
+    : reportId = row['report_id'] as int,
+      incidentType = row['incident_type'] as String,
+      barangay = row['barangay'] as String,
+      photoUrl = row['photo_url'] as String?,
+      deletedAt = switch (row['deleted_at']) {
+        final String t => DateTime.parse(t).toLocal(),
+        _ => null,
+      },
+      deletedBy = row['deleted_by'] as String?,
+      expiresAt = DateTime.parse(row['expires_at'] as String).toLocal();
+
+  bool get expired => !expiresAt.isAfter(DateTime.now());
+
+  /// When it went in the trash (whichever came first).
+  DateTime get trashedAt => deletedAt != null && deletedAt!.isBefore(expiresAt)
+      ? deletedAt!
+      : expiresAt;
+
+  DateTime get erasesAt => trashedAt.add(const Duration(days: kTrashDays));
+
+  /// Same rule as restore_report(): not expired, and the owner only gets
+  /// back what they deleted themselves.
+  bool get canRestore =>
+      !expired && (me?.isAdmin == true || deletedBy == me?.userId);
+}
+
+/// The user's own reports in the trash, newest first.
+Future<List<TrashedReport>> loadMyTrash() async {
+  final now = DateTime.now().toUtc().toIso8601String();
+  final rows = await _db
+      .from('flood_reports')
+      .select(
+        'report_id, incident_type, barangay, photo_url, deleted_at, deleted_by, expires_at',
+      )
+      .eq('user_id', me!.userId)
+      .or('deleted_at.not.is.null,expires_at.lte."$now"')
+      .order('created_at', ascending: false);
+  return [for (final r in rows) TrashedReport.fromRow(r)];
 }
 
 /// What to show when posting fails.

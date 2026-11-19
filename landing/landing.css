@@ -69,6 +69,7 @@ img { display: block; max-width: 100%; }
 }
 
 h1, h2, h3 { margin: 0; font-weight: 700; text-wrap: balance; }
+p { text-wrap: pretty; } /* no one-word last lines */
 
 /* ------------------------------------------------------------
    The night sky (fixed behind everything)
@@ -293,7 +294,7 @@ h1 span { display: block; white-space: nowrap; }
 }
 .store:hover { transform: translateY(-2px); border-color: rgba(255, 255, 255, .35); }
 .store-text { display: flex; flex-direction: column; font-size: 13.5px; font-weight: 700; line-height: 1.1; }
-.store-text small { font-size: 9.5px; font-weight: 500; opacity: .72; }
+.store-text small { font-size: 11px; font-weight: 500; opacity: .72; }
 .notice { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 13px; color: var(--muted); }
 .notice .ms { font-size: 16px; color: var(--blue); }
 .notice strong { color: var(--text); }
@@ -441,7 +442,7 @@ h3 { font-size: 22px; letter-spacing: -.02em; margin-top: 28px; }
 
 .wstack {
   position: absolute; z-index: 4; right: -3%; bottom: 3%;
-  width: 270px;
+  width: 284px; /* 4 stat labels at 11 px need the room */
   animation: card-in 1s var(--ease-out) .9s both;
 }
 @keyframes card-in { from { opacity: 0; transform: translate3d(-30px, 14px, 0) scale(.92); } }
@@ -458,7 +459,7 @@ h3 { font-size: 22px; letter-spacing: -.02em; margin-top: 28px; }
   animation: live 1.8s ease-out infinite;
 }
 @keyframes live { 0% { box-shadow: 0 0 0 0 rgba(124, 255, 178, .6); } 70%, 100% { box-shadow: 0 0 0 6px rgba(124, 255, 178, 0); } }
-.wcard-kicker { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.wcard-kicker { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 .wcard-time { margin-left: auto; font-size: 11px; color: rgba(255, 255, 255, .7); }
 .wcard-main { display: flex; align-items: flex-start; justify-content: space-between; margin-top: 10px; }
 .wcard-temp { font-size: 58px; font-weight: 300; line-height: 1; letter-spacing: -.035em; font-variant-numeric: tabular-nums; }
@@ -466,15 +467,14 @@ h3 { font-size: 22px; letter-spacing: -.02em; margin-top: 28px; }
 .wcard-sub { margin-top: 2px; font-size: 11.5px; color: rgba(255, 255, 255, .7); }
 .wcard-icon { font-size: 50px; }
 .wcard-stats {
-  display: grid; grid-template-columns: repeat(4, 1fr);
-  margin-top: 14px; padding: 9px 4px; border-radius: 14px;
-  background: rgba(255, 255, 255, .1); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .13);
+  display: grid; grid-template-columns: repeat(4, auto); justify-content: space-between;
+  margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, .13);
   text-align: center;
 }
 .wcard-stats div { display: flex; flex-direction: column; align-items: center; }
 .wcard-stats .ms { font-size: 15px; margin-bottom: 3px; }
 .wcard-stats b { font-size: 11.5px; font-weight: 700; }
-.wcard-stats small { font-size: 9px; color: rgba(255, 255, 255, .7); }
+.wcard-stats small { font-size: 11px; white-space: nowrap; color: rgba(255, 255, 255, .7); }
 .wcard[data-state="loading"] #wTemp, .wcard[data-state="loading"] .wcard-stats b { animation: pulse 1.4s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: .35; } }
 
@@ -490,7 +490,7 @@ h3 { font-size: 22px; letter-spacing: -.02em; margin-top: 28px; }
 .wchip[data-risk="high"] { --risk: var(--danger); }
 .wchip-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--risk); box-shadow: 0 0 0 4px color-mix(in srgb, var(--risk) 22%, transparent); }
 .wchip-text { display: flex; flex-direction: column; line-height: 1.2; }
-.wchip-text small { font-size: 10.5px; font-weight: 600; color: var(--muted); }
+.wchip-text small { font-size: 11px; font-weight: 600; color: var(--muted); }
 .wchip-text b { font-size: 14.5px; font-weight: 700; color: var(--risk); }
 .wchip[data-risk="loading"] b { color: var(--muted); animation: pulse 1.4s ease-in-out infinite; }
 

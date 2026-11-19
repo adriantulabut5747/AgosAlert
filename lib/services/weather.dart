@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
 
@@ -68,6 +69,30 @@ class DailyForecast {
     this.sunrise,
     this.sunset,
   );
+}
+
+/// Open-Meteo's multi-model answer (`precipitation_probability_<model>`
+/// columns) -> the average rain chance per hour, keyed by the hour it
+/// covers. Like the main request, the entry at 8:00 is for 7-8, so it's
+/// stored under 7:00. Models that sent nothing for an hour are skipped.
+Map<DateTime, int> averageChances(Map<String, dynamic> json) {
+  final h = json['hourly'] as Map<String, dynamic>;
+  final times = (h['time'] as List).cast<String>();
+  final cols = [
+    for (final e in h.entries)
+      if (e.key.startsWith('precipitation_probability_')) e.value as List,
+  ];
+  final out = <DateTime, int>{};
+  for (var i = 0; i < times.length; i++) {
+    final vals = [
+      for (final c in cols)
+        if (c[i] != null) c[i] as num,
+    ];
+    if (vals.isEmpty) continue;
+    final hour = DateTime.parse(times[i]).subtract(const Duration(hours: 1));
+    out[hour] = (vals.reduce((a, b) => a + b) / vals.length).round();
+  }
+  return out;
 }
 
 class MabalacatWeather {
@@ -162,13 +187,26 @@ class MabalacatWeather {
     // The rain chart needs the last 24 hours too; 25 ahead covers the
     // current hour + the next 24.
     'past_hours': '24',
-    'forecast_hours': '25',
+    'forecast_hours': '26', // +1: an hour's rain sits on the NEXT entry
     'minutely_15': 'precipitation',
     'forecast_minutely_15': '9', // the current quarter + the next 2 hours
     'daily':
         'weather_code,temperature_2m_max,temperature_2m_min,'
         'precipitation_probability_max,precipitation_sum,sunrise,sunset',
     'forecast_days': '5',
+    'timezone': 'Asia/Manila',
+  });
+
+  // Rain chance from 5 weather models at once. Open-Meteo's default
+  // (ECMWF) alone is often the wettest: Nov 19 2026 it said 98% for a
+  // day GFS put at 87, ICON 58, GEM 24 and UKMO 17. JMA sends no chance.
+  static final _chanceUrl = Uri.https('api.open-meteo.com', '/v1/forecast', {
+    'latitude': '15.2236',
+    'longitude': '120.5714',
+    'hourly': 'precipitation_probability',
+    'models':
+        'ecmwf_ifs025,gfs_seamless,icon_seamless,gem_seamless,ukmo_seamless',
+    'forecast_days': '6', // 5 days + the entry that closes the last hour
     'timezone': 'Asia/Manila',
   });
 
@@ -238,10 +276,18 @@ class MabalacatWeather {
     //     "daily":   { same idea, one entry per day } }
     // So hourly/daily are "columns": item i of every list belongs to the
     // same hour/day as time[i].
+    // Both requests run at the same time; if the 5-model one fails, the
+    // rain chances fall back to the default model's.
+    final models = getWeatherJson(_chanceUrl)
+        .then(averageChances, onError: (Object _) => <DateTime, int>{});
     final json = await getWeatherJson(_url);
+    final chance = await models;
     final cur = json['current'] as Map<String, dynamic>;
     final h = json['hourly'] as Map<String, dynamic>;
     final d = json['daily'] as Map<String, dynamic>;
+    // The start of Open-Meteo's current 15-minute block (7:15 at 7:24):
+    // fine for picking hours, but shown as the time it read as a clock
+    // running late, so `time:` below is the real Manila time instead.
     final now = DateTime.parse(cur['time'] as String);
 
     // Small helper: item i of a list as a number, or 0 if the API sent
@@ -254,19 +300,23 @@ class MabalacatWeather {
     final hourly = <HourlyForecast>[];
     final pastRain = <(DateTime, double)>[];
     final thisHour = DateTime(now.year, now.month, now.day, now.hour);
-    for (var i = 0; i < hTimes.length && hourly.length < 24; i++) {
+    // Open-Meteo's rain, rain chance and weather code at 8:00 describe the
+    // hour BEFORE it (7-8). The app's hour T means T to T+1 (like MET
+    // Norway's next_1_hours), so those three come from the next entry.
+    // Without this, "rain this hour" showed the hour that already passed.
+    for (var i = 0; i + 1 < hTimes.length && hourly.length < 24; i++) {
       final t = DateTime.parse(hTimes[i]);
       if (t.isBefore(thisHour)) {
-        pastRain.add((t, n(h['precipitation'], i).toDouble()));
+        pastRain.add((t, n(h['precipitation'], i + 1).toDouble()));
         continue;
       }
       hourly.add(
         HourlyForecast(
           t,
           n(h['temperature_2m'], i).toDouble(),
-          n(h['precipitation_probability'], i).toInt(),
-          n(h['precipitation'], i).toDouble(),
-          n(h['weather_code'], i).toInt(),
+          chance[t] ?? n(h['precipitation_probability'], i + 1).toInt(),
+          n(h['precipitation'], i + 1).toDouble(),
+          n(h['weather_code'], i + 1).toInt(),
           n(h['is_day'], i) == 1,
           n(h['relative_humidity_2m'], i).toInt(),
           n(h['wind_speed_10m'], i).toDouble(),
@@ -280,6 +330,14 @@ class MabalacatWeather {
       );
     }
 
+    // A day's rain chance = its highest hourly 5-model chance, counting
+    // only hours not yet over (so today drops the afternoon that's past).
+    final dayChance = <DateTime, int>{};
+    chance.forEach((t, p) {
+      if (t.isBefore(thisHour)) return;
+      final day = DateTime(t.year, t.month, t.day);
+      dayChance[day] = math.max(dayChance[day] ?? 0, p);
+    });
     final dTimes = (d['time'] as List).cast<String>();
     final daily = [
       for (var i = 0; i < dTimes.length; i++)
@@ -287,7 +345,8 @@ class MabalacatWeather {
           DateTime.parse(dTimes[i]),
           n(d['temperature_2m_max'], i).toDouble(),
           n(d['temperature_2m_min'], i).toDouble(),
-          n(d['precipitation_probability_max'], i).toInt(),
+          dayChance[DateTime.parse(dTimes[i])] ??
+              n(d['precipitation_probability_max'], i).toInt(),
           n(d['precipitation_sum'], i).toDouble(),
           n(d['weather_code'], i).toInt(),
           DateTime.parse(d['sunrise'][i] as String),
@@ -321,7 +380,7 @@ class MabalacatWeather {
       cloud: ((cur['cloud_cover'] as num?) ?? 0).toInt(),
       uv: ((cur['uv_index'] as num?) ?? 0).toDouble(),
       visibility: ((cur['visibility'] as num?) ?? 0).toDouble(),
-      time: now,
+      time: manilaTime(DateTime.now()),
       hourly: hourly,
       pastRain: pastRain,
       daily: daily,

@@ -4,12 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart'
     show AuthException, PostgrestException;
 
-import '../data/demo_data.dart' show kBarangayPoints, timeAgo;
+import '../data/demo_data.dart' show kBarangayPoints, shortDate, timeAgo;
 import '../services/admin.dart';
 import '../services/alerts.dart';
 import '../services/auth.dart';
 import '../services/centers.dart';
-import '../services/reports.dart' show incidentIcon;
+import '../services/reports.dart'
+    show deleteReportForGood, incidentIcon, restoreReport, trashReport;
 import '../services/rescue.dart' show kRescueNeeds, kRescueStatuses;
 import '../theme.dart';
 import '../widgets/common.dart';
@@ -503,13 +504,20 @@ class _ReportsSectionState extends State<_ReportsSection> {
                       '${r.posterName} · ${_ago(r.createdAt)}${r.depthCm == null ? '' : ' · ${r.depthCm} cm'}',
                     ),
                     if (r.note != null) _line(c, '"${r.note}"'),
+                    if (r.inTrash)
+                      _line(
+                        c,
+                        '${r.deletedAt == null ? 'Expired' : 'Deleted'} · erased ${shortDate(r.erasesAt)}',
+                      ),
                   ],
                 ),
               ),
               const SizedBox(width: 8),
               StatusPill(
-                r.status[0].toUpperCase() + r.status.substring(1),
-                color,
+                r.inTrash
+                    ? 'In trash'
+                    : r.status[0].toUpperCase() + r.status.substring(1),
+                r.inTrash ? kGray : color,
               ),
             ],
           ),
@@ -517,42 +525,72 @@ class _ReportsSectionState extends State<_ReportsSection> {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: [
-              if (r.status != 'verified')
-                TintedButton(
-                  label: 'Verify',
-                  icon: CupertinoIcons.checkmark_seal_fill,
-                  onPressed: () =>
-                      _change(() => setReportStatus(r.reportId, 'verified')),
-                ),
-              if (r.status != 'removed')
-                TintedButton(
-                  label: 'Hide',
-                  icon: CupertinoIcons.eye_slash_fill,
-                  onPressed: () =>
-                      _change(() => setReportStatus(r.reportId, 'removed')),
-                )
-              else
-                TintedButton(
-                  label: 'Show again',
-                  icon: CupertinoIcons.eye_fill,
-                  onPressed: () =>
-                      _change(() => setReportStatus(r.reportId, 'unverified')),
-                ),
-              TintedButton(
-                label: 'Delete',
-                icon: CupertinoIcons.trash_fill,
-                onPressed: () async {
-                  final ok = await _confirm(
-                    context,
-                    title: 'Delete this report?',
-                    message: 'The report, its photo and its votes are deleted for good. "Hide" keeps it for you to look at.',
-                    action: 'Delete',
-                  );
-                  if (ok) await _change(() => deleteReportForGood(r));
-                },
-              ),
-            ],
+            children: r.inTrash
+                ? [
+                    if (r.deletedAt != null && !r.expired)
+                      TintedButton(
+                        label: 'Restore',
+                        icon: CupertinoIcons.arrow_uturn_left,
+                        onPressed: () =>
+                            _change(() => restoreReport(r.reportId)),
+                      ),
+                    TintedButton(
+                      label: 'Delete now',
+                      icon: CupertinoIcons.trash_fill,
+                      onPressed: () async {
+                        final ok = await _confirm(
+                          context,
+                          title: 'Delete it now?',
+                          message: 'The report, its photo and its votes are erased for good, without waiting for the trash.',
+                          action: 'Delete now',
+                        );
+                        if (ok) {
+                          await _change(
+                            () => deleteReportForGood(r.reportId, r.photoUrl),
+                          );
+                        }
+                      },
+                    ),
+                  ]
+                : [
+                    if (r.status != 'verified')
+                      TintedButton(
+                        label: 'Verify',
+                        icon: CupertinoIcons.checkmark_seal_fill,
+                        onPressed: () => _change(
+                          () => setReportStatus(r.reportId, 'verified'),
+                        ),
+                      ),
+                    if (r.status != 'removed')
+                      TintedButton(
+                        label: 'Hide',
+                        icon: CupertinoIcons.eye_slash_fill,
+                        onPressed: () => _change(
+                          () => setReportStatus(r.reportId, 'removed'),
+                        ),
+                      )
+                    else
+                      TintedButton(
+                        label: 'Show again',
+                        icon: CupertinoIcons.eye_fill,
+                        onPressed: () => _change(
+                          () => setReportStatus(r.reportId, 'unverified'),
+                        ),
+                      ),
+                    TintedButton(
+                      label: 'Delete',
+                      icon: CupertinoIcons.trash_fill,
+                      onPressed: () async {
+                        final ok = await _confirm(
+                          context,
+                          title: 'Delete this report?',
+                          message: 'It goes to the trash: hidden from everyone, erased with its photo after 30 days. Only an admin can restore it.',
+                          action: 'Delete',
+                        );
+                        if (ok) await _change(() => trashReport(r.reportId));
+                      },
+                    ),
+                  ],
           ),
         ],
       ),

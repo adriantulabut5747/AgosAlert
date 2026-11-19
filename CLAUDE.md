@@ -21,9 +21,21 @@ pg_cron delete), `report_votes` (03), `alerts` + `alert_reads` (04;
 admins post from the Admin page), `05_account.sql` (Nov 18 2026: `delete_my_account()` RPC +
 a select policy on the user's own photo folder, without which Storage's
 remove() silently did nothing). Settings → Account = change display
-name + Change password + Delete account (account.dart sheets, auth.dart
-`changePassword`, 
-`saveMyName` / `deleteMyAccount`, `meChanged` rebuilds the top bar).
+name + Change password + Trash + Delete account (account.dart sheets,
+auth.dart `changePassword`, `saveMyName`, `meChanged` rebuilds the top bar).
+**Soft delete (Nov 19 2026, `09_trash.sql` + Edge Function
+`supabase/functions/purge`, pasted in the dashboard, Verify JWT off,
+called hourly by pg_cron + pg_net):** deleting a report (owner OR admin)
+= `trash_report` (deleted_at / deleted_by); an expired report is in the
+trash too; the purge erases row + photo 30 days after it went in
+(`kTrashDays`). Owner restores only what they deleted themselves
+(Settings → Trash), admins any; expired can't come back; "Delete now"
+erases at once. Delete account = `request_account_deletion` (sets
+`users.deletion_requested_at`, global sign-out, reports hidden, can't
+post); logging in within 7 days asks Keep my account / Log out
+(`askKeepAccount`); a saved login is dropped at start. After 7 days the
+purge deletes their photo folder, then the auth user (cascades). 05's
+`delete_my_account()` is dropped.
 **Password reset (Nov 19 2026):** login "Forgot password?" →
 `sendPasswordReset` → email from **Gmail SMTP** (Supabase's built-in
 mailer only reaches team members) using the custom template in

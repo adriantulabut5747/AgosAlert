@@ -268,9 +268,9 @@ class HomeShellState extends State<HomeShell>
                       child: i == 1
                           ? MediaQuery(
                               data: mq.copyWith(
-                                padding: mq.padding.copyWith(
-                                  top: mq.padding.top + bar,
-                                ),
+                                // Just the bar: the SafeArea around this
+                                // stack already skips the phone's status bar.
+                                padding: mq.padding.copyWith(top: bar),
                               ),
                               child: _tabs[i],
                             )

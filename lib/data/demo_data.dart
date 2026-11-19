@@ -307,3 +307,7 @@ String timeAgo(Duration d) {
   if (d.inHours < 24) return '${d.inHours}h ago';
   return '${d.inDays}d ago';
 }
+
+/// "Nov 26".
+String shortDate(DateTime d) =>
+    '${const ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.month - 1]} ${d.day}';

@@ -59,7 +59,10 @@ void main() {
   test('falls back in order; fails only when all three do', () async {
     final asked = <String>[];
     final client = MockClient((req) async {
-      asked.add(req.url.host);
+      // The 5-model rain chance request isn't a source of its own.
+      if (!req.url.queryParameters.containsKey('models')) {
+        asked.add(req.url.host);
+      }
       return http.Response('down', 503);
     });
     await http.runWithClient(() async {

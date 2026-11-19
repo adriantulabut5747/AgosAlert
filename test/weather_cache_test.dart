@@ -14,8 +14,12 @@ void main() {
     var requests = 0;
     var fail = true; // the first request fails
     final client = MockClient((req) async {
-      // Count Open-Meteo only: a failure also asks the two backups.
-      if (req.url.host == 'api.open-meteo.com') requests++;
+      // Count Open-Meteo's main request only: a failure also asks the two
+      // backups, and the 5-model rain chance is a second request.
+      if (req.url.host == 'api.open-meteo.com' &&
+          !req.url.queryParameters.containsKey('models')) {
+        requests++;
+      }
       if (fail) return http.Response('oops', 500);
       return http.Response(
         _json,
@@ -41,5 +45,18 @@ void main() {
       await MabalacatWeather.load(refresh: true);
       expect(requests, 3);
     }, () => client);
+  });
+
+  test('rain chance = the models\' average, under the hour it covers', () {
+    final avg = averageChances({
+      'hourly': {
+        'time': ['2026-11-19T17:00', '2026-11-19T18:00'],
+        'precipitation_probability_ecmwf_ifs025': [98, 94],
+        'precipitation_probability_gfs_seamless': [100, null],
+        'precipitation_probability_ukmo_seamless': [0, 0],
+      },
+    });
+    expect(avg[DateTime(2026, 11, 19, 16)], 66); // (98 + 100 + 0) / 3
+    expect(avg[DateTime(2026, 11, 19, 17)], 47); // null skipped
   });
 }

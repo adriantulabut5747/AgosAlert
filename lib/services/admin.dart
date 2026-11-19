@@ -4,7 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'alerts.dart' show loadAlerts;
 import 'centers.dart' show loadCenters;
-import 'reports.dart' show loadReports;
+import 'reports.dart' show kTrashDays, loadReports;
 
 /// ============================================================
 /// ADMIN: what the Admin page reads and changes (FR-A1..A8)
@@ -141,6 +141,7 @@ class AdminReport {
   final String posterName;
   final DateTime createdAt;
   final DateTime expiresAt;
+  final DateTime? deletedAt; // in the trash since (supabase/09_trash.sql)
 
   AdminReport.fromRow(Map<String, dynamic> row)
     : reportId = row['report_id'] as int,
@@ -155,7 +156,23 @@ class AdminReport {
           (row['users'] as Map<String, dynamic>?)?['full_name'] as String? ??
           'Deleted account',
       createdAt = DateTime.parse(row['created_at'] as String).toLocal(),
-      expiresAt = DateTime.parse(row['expires_at'] as String).toLocal();
+      expiresAt = DateTime.parse(row['expires_at'] as String).toLocal(),
+      deletedAt = switch (row['deleted_at']) {
+        final String t => DateTime.parse(t).toLocal(),
+        _ => null,
+      };
+
+  bool get expired => !expiresAt.isAfter(DateTime.now());
+
+  /// Deleted, or past its 14 days.
+  bool get inTrash => deletedAt != null || expired;
+
+  /// When the purge function erases it (in the trash only).
+  DateTime get erasesAt =>
+      (deletedAt != null && deletedAt!.isBefore(expiresAt)
+              ? deletedAt!
+              : expiresAt)
+          .add(const Duration(days: kTrashDays));
 }
 
 Future<List<AdminReport>> loadAllReports() async {
@@ -163,9 +180,10 @@ Future<List<AdminReport>> loadAllReports() async {
       .from('flood_reports')
       // Two foreign keys point at users (poster, reviewer): name the poster's.
       .select('*, users!flood_reports_user_id_fkey(full_name)')
-      .gt('expires_at', DateTime.now().toUtc().toIso8601String())
       .order('created_at', ascending: false);
-  return [for (final r in rows) AdminReport.fromRow(r)];
+  final all = [for (final r in rows) AdminReport.fromRow(r)];
+  // Live ones first, then the trash (every row left is one or the other).
+  return [...all.where((r) => !r.inTrash), ...all.where((r) => r.inTrash)];
 }
 
 /// verified / removed (hidden from everyone) / unverified (back to normal).
@@ -174,19 +192,6 @@ Future<void> setReportStatus(int reportId, String status) async {
       .from('flood_reports')
       .update({'status': status, 'reviewed_by': _db.auth.currentUser!.id})
       .eq('report_id', reportId);
-  await loadReports();
-}
-
-/// Deletes a report and its photo for good.
-Future<void> deleteReportForGood(AdminReport r) async {
-  await _db.from('flood_reports').delete().eq('report_id', r.reportId);
-  final url = r.photoUrl;
-  if (url != null && url.contains('/report-photos/')) {
-    await _db.storage
-        .from('report-photos')
-        .remove([url.split('/report-photos/').last])
-        .catchError((_) => <FileObject>[]);
-  }
   await loadReports();
 }
 

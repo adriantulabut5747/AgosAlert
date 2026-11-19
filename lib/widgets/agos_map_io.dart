@@ -153,12 +153,13 @@ class _AgosMapState extends State<AgosMap> implements MapBackend {
             alignment: Alignment.bottomRight,
             child: Padding(
               padding: EdgeInsets.only(
+                // Bottom edge, under the floating nav (Nov 19 2026, Adrian).
                 right: 8 + widget.padding.right,
-                bottom: 6 + widget.padding.bottom,
+                bottom: 1 + MediaQuery.paddingOf(context).bottom,
               ),
               child: Text(
                 AppTileLayer.credits,
-                style: TextStyle(color: c.textSecondary, fontSize: 11),
+                style: TextStyle(color: c.textSecondary, fontSize: 9),
               ),
             ),
           ),

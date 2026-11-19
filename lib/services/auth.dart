@@ -3,7 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart' show ValueNotifier, kIsWeb;
 
 import '../data/demo_data.dart';
-import 'reports.dart' show deleteAllMyPhotos, loadReports;
+import 'reports.dart' show loadReports;
 import 'session.dart' show recoveryTokenHash;
 import 'share.dart' show clearAddressQuery;
 import 'supabase_config.dart';
@@ -30,6 +30,9 @@ class AppUser {
   final String barangay;
   final String role; // 'registered' or 'admin'
   final String accountStatus; // 'active' or 'suspended'
+  // Set by "Delete account": deleted for good 7 days later unless they
+  // log in and keep it (supabase/09_trash.sql).
+  final DateTime? deletionRequestedAt;
 
   const AppUser({
     required this.userId,
@@ -39,6 +42,7 @@ class AppUser {
     required this.barangay,
     this.role = 'registered',
     this.accountStatus = 'active',
+    this.deletionRequestedAt,
   });
 
   AppUser.fromRow(Map<String, dynamic> row)
@@ -48,9 +52,17 @@ class AppUser {
       phoneNumber = row['phone_number'] as String?,
       barangay = row['barangay'] as String,
       role = row['role'] as String,
-      accountStatus = row['account_status'] as String;
+      accountStatus = row['account_status'] as String,
+      deletionRequestedAt = switch (row['deletion_requested_at']) {
+        final String t => DateTime.parse(t).toLocal(),
+        _ => null,
+      };
 
   bool get isAdmin => role == 'admin';
+
+  /// When the account goes for good, if deletion was asked for.
+  DateTime? get deletesAt =>
+      deletionRequestedAt?.add(const Duration(days: kAccountDeleteDays));
 
   /// "Juan Dela Cruz" -> "JC", "Tugak" -> "T". For the avatar.
   String get initials {
@@ -93,6 +105,12 @@ Future<void> initAuth() async {
   if (_db.auth.currentSession == null) return;
   try {
     await _loadMe();
+    // Waiting to be deleted: only a fresh login (which asks "Keep my
+    // account?") may bring it back, never a saved one.
+    if (me?.deletionRequestedAt != null) {
+      await _db.auth.signOut(scope: SignOutScope.local);
+      _forgetMe();
+    }
   } catch (_) {
     // Offline, or the account was suspended: start on the login screen.
   }
@@ -180,20 +198,30 @@ Future<void> saveMyName(String fullName) async {
     barangay: u.barangay,
     role: u.role,
     accountStatus: u.accountStatus,
+    deletionRequestedAt: u.deletionRequestedAt,
   );
   meChanged.value++;
   await loadReports(); // the feed shows poster names
 }
 
-/// Deletes the account for good: photos first (the database can't delete
-/// Storage files), then supabase/05_account.sql's delete_my_account(),
-/// whose cascade removes the users row, reports, votes and read-marks.
-Future<void> deleteMyAccount() async {
-  await deleteAllMyPhotos();
-  await _db.rpc('delete_my_account');
-  // The login no longer exists on the server: only forget it here.
-  await _db.auth.signOut(scope: SignOutScope.local);
+/// Days between "Delete account" and the purge function deleting it.
+const kAccountDeleteDays = 7;
+
+/// "Delete account", Facebook style (supabase/09_trash.sql): marks the
+/// account, hides its reports and signs out on EVERY device, so only a
+/// real login within [kAccountDeleteDays] can keep it.
+Future<void> requestAccountDeletion() async {
+  await _db.rpc('request_account_deletion');
+  await _db.auth.signOut(scope: SignOutScope.global);
   _forgetMe();
+  await loadReports();
+}
+
+/// "Keep my account" after logging in during the wait.
+Future<void> cancelAccountDeletion() async {
+  await _db.rpc('cancel_account_deletion');
+  await _loadMe();
+  await loadReports();
 }
 
 void _forgetMe() {

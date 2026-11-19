@@ -144,8 +144,8 @@ class VoteBar extends StatelessWidget {
   }
 }
 
-/// On the user's own report, in place of the thumbs: asks, then deletes
-/// the report and its photo (the database only lets owners and admins).
+/// On the user's own report, in place of the thumbs: asks, then moves
+/// it to the trash (Settings > Trash, erased after 30 days).
 class DeleteReportButton extends StatefulWidget {
   final FloodReport report;
   const DeleteReportButton({required this.report, super.key});
@@ -176,7 +176,9 @@ class _DeleteReportButtonState extends State<DeleteReportButton> {
             ),
             const SizedBox(height: 4),
             Text(
-              'It disappears from the map and the feed for everyone.',
+              'It disappears from the map and the feed for everyone. '
+              'You can restore it from Settings > Trash for '
+              '$kTrashDays days.',
               textAlign: TextAlign.center,
               style: TextStyle(color: c.textSecondary, fontSize: 13),
             ),
@@ -202,8 +204,20 @@ class _DeleteReportButtonState extends State<DeleteReportButton> {
 
   Future<void> _delete() async {
     setState(() => _busy = true);
+    final bar = ScaffoldMessenger.of(context);
+    final id = widget.report.reportId;
     try {
-      await deleteReport(widget.report);
+      await trashReport(id);
+      // The post is gone from the feed now, so this button may be too.
+      bar.showSnackBar(
+        SnackBar(
+          content: const Text('Moved to the trash.'),
+          action: SnackBarAction(
+            label: 'Undo',
+            onPressed: () => restoreReport(id).catchError((_) {}),
+          ),
+        ),
+      );
     } catch (_) {
       if (!mounted) return;
       setState(() => _busy = false);

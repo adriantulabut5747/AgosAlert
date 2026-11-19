@@ -70,6 +70,20 @@ class AgosAlertApp extends StatelessWidget {
         themeMode: mode,
         themeAnimationDuration: const Duration(milliseconds: 400),
         scrollBehavior: const _AppleScroll(),
+        // Snack bars: a 400 px pill centered on wide screens instead of a
+        // window-wide bar. The theme can't know the screen width, so it's here.
+        builder: (context, child) {
+          final theme = Theme.of(context);
+          final w = MediaQuery.sizeOf(context).width;
+          return Theme(
+            data: theme.copyWith(
+              snackBarTheme: theme.snackBarTheme.copyWith(
+                width: w > 432 ? 400 : null,
+              ),
+            ),
+            child: child!,
+          );
+        },
         // Logged in (or ?as=guest from the landing page): straight into
         // the app, usually on Weather. Otherwise the login screen.
         // From a password reset email: logged in, so open the app and ask

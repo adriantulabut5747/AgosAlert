@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show AuthException;
 
+import '../data/demo_data.dart' show shortDate;
 import '../services/auth.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
@@ -232,8 +233,9 @@ void editDisplayName(BuildContext context, {VoidCallback? onSaved}) {
   );
 }
 
-/// Settings > Delete account. Asks first, then deletes everything
-/// (services/auth.dart deleteMyAccount) and goes to the login screen.
+/// Settings > Delete account. Asks first, then starts the 7-day wait
+/// (services/auth.dart requestAccountDeletion) and goes to the login
+/// screen, which says until when logging in still keeps it.
 void confirmDeleteAccount(BuildContext context) {
   var busy = false;
   String? error;
@@ -256,8 +258,10 @@ void confirmDeleteAccount(BuildContext context) {
             ),
             const SizedBox(height: 6),
             Text(
-              'This deletes your account, your flood reports and their '
-              'photos, and your votes. It can\'t be undone.',
+              'You\'re logged out everywhere and your reports are hidden. '
+              'In $kAccountDeleteDays days your account, reports, photos '
+              'and votes are deleted for good. Log in before then to keep '
+              'it.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: c.textSecondary,
@@ -285,9 +289,19 @@ void confirmDeleteAccount(BuildContext context) {
                   error = null;
                 });
                 try {
-                  await deleteMyAccount();
+                  final until = shortDate(
+                    DateTime.now().add(
+                      const Duration(days: kAccountDeleteDays),
+                    ),
+                  );
+                  await requestAccountDeletion();
                   nav.pushAndRemoveUntil(
-                    slideRoute(const LoginScreen()),
+                    slideRoute(
+                      LoginScreen(
+                        message:
+                            'Your account goes for good on $until. Changed your mind? Log in before then.',
+                      ),
+                    ),
                     (_) => false,
                   );
                 } catch (e) {
@@ -582,4 +596,84 @@ void showChangePassword(BuildContext context, {bool afterReset = false}) {
       },
     ),
   );
+}
+
+/// After logging in to an account waiting to be deleted (Facebook
+/// style): "Keep my account" cancels the deletion; "Log out" (or closing
+/// the sheet) logs out and leaves it. True = the account was kept.
+Future<bool> askKeepAccount(BuildContext context) async {
+  final when = shortDate(me!.deletesAt!);
+  var busy = false;
+  String? error;
+  final kept = await showAppSheet<bool>(
+    context,
+    builder: (sheet) => StatefulBuilder(
+      builder: (sheet, setSheet) {
+        final c = AppColors(sheet);
+        return Column(
+          children: [
+            const IconBadge(CupertinoIcons.person_fill, kBlue, size: 60),
+            const SizedBox(height: 14),
+            Text(
+              'Keep your account?',
+              style: TextStyle(
+                color: c.textPrimary,
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'You asked to delete it. It goes for good on $when, with '
+              'your reports, photos and votes, unless you keep it now.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: c.textSecondary,
+                fontSize: 13,
+                height: 1.45,
+              ),
+            ),
+            if (error != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                error!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: kDanger, fontSize: 13),
+              ),
+            ],
+            const SizedBox(height: 20),
+            PrimaryButton(
+              label: 'Keep my account',
+              loading: busy,
+              onPressed: () async {
+                setSheet(() {
+                  busy = true;
+                  error = null;
+                });
+                try {
+                  await cancelAccountDeletion();
+                  if (sheet.mounted) Navigator.of(sheet).pop(true);
+                } catch (_) {
+                  setSheet(() {
+                    busy = false;
+                    error =
+                        'Couldn\'t reach the server. Check your connection '
+                        'and try again.';
+                  });
+                }
+              },
+            ),
+            const SizedBox(height: 6),
+            SecondaryButton(
+              label: 'Log out',
+              onPressed: busy ? null : () => Navigator.of(sheet).pop(false),
+            ),
+          ],
+        );
+      },
+    ),
+  );
+  if (kept == true) return true;
+  await logOut();
+  return false;
 }

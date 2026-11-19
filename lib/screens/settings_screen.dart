@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart' show CupertinoIcons, CupertinoSwitch;
+import 'package:flutter/cupertino.dart'
+    show CupertinoActivityIndicator, CupertinoIcons, CupertinoSwitch;
 
+import '../data/demo_data.dart' show shortDate;
 import '../services/auth.dart';
+import '../services/reports.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/agos_icons.dart';
@@ -69,6 +72,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         'Password',
                         'Change',
                         () => showChangePassword(context),
+                      ),
+                      _divider(c),
+                      _row(
+                        c,
+                        CupertinoIcons.trash_fill,
+                        'Trash',
+                        null,
+                        () => showTrash(context),
                       ),
                     ],
                   ),
@@ -357,6 +368,152 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Settings > Trash: the user's reports in the trash (deleted,
+/// or past their 14 days), each erased [kTrashDays] after it went in.
+void showTrash(BuildContext context) =>
+    showAppSheet(context, builder: (_) => const _TrashList());
+
+class _TrashList extends StatefulWidget {
+  const _TrashList();
+
+  @override
+  State<_TrashList> createState() => _TrashListState();
+}
+
+class _TrashListState extends State<_TrashList> {
+  List<TrashedReport>? _list;
+  String? _error;
+  int? _busy; // report_id being restored / deleted
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final list = await loadMyTrash();
+      if (!mounted) return;
+      setState(() {
+        _list = list;
+        _error = null;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _error = 'Couldn\'t load your trash.');
+    }
+  }
+
+  Future<void> _do(int id, Future<void> Function() f) async {
+    setState(() => _busy = id);
+    try {
+      await f();
+      await _load();
+    } catch (_) {
+      if (mounted) {
+        setState(() => _error = 'That didn\'t work. Check your connection.');
+      }
+    }
+    if (mounted) setState(() => _busy = null);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = AppColors(context);
+    final list = _list;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Trash',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: c.textPrimary,
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Reports you deleted, and ones past their 14 days. Each is erased '
+          'with its photo $kTrashDays days after it got here.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: c.textSecondary, fontSize: 13, height: 1.4),
+        ),
+        const SizedBox(height: 16),
+        if (_error != null)
+          Text(
+            _error!,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: kDanger, fontSize: 13),
+          ),
+        if (list == null && _error == null)
+          const Center(child: CupertinoActivityIndicator()),
+        if (list != null && list.isEmpty)
+          Text(
+            'Nothing here.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: c.textSecondary, fontSize: 15),
+          ),
+        for (final r in list ?? const <TrashedReport>[])
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: AppCard(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${r.incidentType[0].toUpperCase()}${r.incidentType.substring(1)} · Brgy. ${r.barangay}',
+                    style: TextStyle(
+                      color: c.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${r.expired && r.deletedAt == null ? 'Expired' : 'Deleted'} '
+                    '${shortDate(r.trashedAt)} · erased ${shortDate(r.erasesAt)}'
+                    '${r.canRestore || r.expired ? '' : ' · removed by an admin'}',
+                    style: TextStyle(color: c.textSecondary, fontSize: 13),
+                  ),
+                  const SizedBox(height: 10),
+                  if (_busy == r.reportId)
+                    const CupertinoActivityIndicator()
+                  else
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        if (r.canRestore)
+                          TintedButton(
+                            label: 'Restore',
+                            icon: CupertinoIcons.arrow_uturn_left,
+                            onPressed: () => _do(
+                              r.reportId,
+                              () => restoreReport(r.reportId),
+                            ),
+                          ),
+                        TintedButton(
+                          label: 'Delete now',
+                          icon: CupertinoIcons.trash_fill,
+                          onPressed: () => _do(
+                            r.reportId,
+                            () => deleteReportForGood(r.reportId, r.photoUrl),
+                          ),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
