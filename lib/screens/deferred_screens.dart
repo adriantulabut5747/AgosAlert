@@ -9,6 +9,7 @@ import 'account.dart';
 // first time it's needed. The map package is big, so the Map tab and the
 // Report incident screen (which has a map preview and photo picker) stay
 // out of the first download. Always open them through this file.
+import 'admin_screen.dart' deferred as admin;
 import 'assistance_tab.dart' deferred as assistance;
 import 'info_screens.dart' deferred as info;
 import 'map_tab.dart' deferred as map_tab;
@@ -154,6 +155,14 @@ void openSettings(BuildContext context) => _openPage(
   load: settings.loadLibrary,
   builder: () => settings.SettingsScreen(),
   title: 'Settings',
+);
+
+/// The Admin page (avatar menu, admins only).
+void openAdmin(BuildContext context) => _openPage(
+  context,
+  load: admin.loadLibrary,
+  builder: () => admin.AdminScreen(),
+  title: 'Admin',
 );
 
 void openHelp(BuildContext context) => _openPage(

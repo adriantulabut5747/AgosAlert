@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:latlong2/latlong.dart' show LatLng;
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -22,7 +23,11 @@ import 'package:agosalert/screens/reports_tab.dart';
 import 'package:agosalert/screens/report_incident_screen.dart';
 import 'package:agosalert/screens/settings_screen.dart';
 import 'package:agosalert/screens/weather_tab.dart';
+import 'package:agosalert/screens/admin_screen.dart';
+import 'package:agosalert/services/admin.dart';
 import 'package:agosalert/services/auth.dart';
+import 'package:agosalert/services/centers.dart';
+import 'package:agosalert/services/rescue.dart';
 import 'package:agosalert/services/reports.dart';
 import 'package:agosalert/services/weather.dart';
 import 'package:agosalert/widgets/check_in.dart';
@@ -97,6 +102,116 @@ void main() {
     me = kTestUser;
     floodReports.value = [testReport()];
     reportsState.value = LoadState.ready;
+    // Two centers (one open, one closed) so the shelter screens have rows.
+    evacCenters.value = const [
+      EvacuationCenter(
+        centerId: 1,
+        name: 'Dau Elementary School',
+        barangay: 'Dau',
+        point: LatLng(15.179, 120.586),
+        isSample: true,
+      ),
+      EvacuationCenter(
+        centerId: 2,
+        name: 'Dolores Covered Court',
+        barangay: 'Dolores',
+        point: LatLng(15.215, 120.56),
+        status: 'closed',
+        isSample: true,
+      ),
+    ];
+    myRescue.value = null;
+  });
+
+  test('Rescue phone numbers: Philippine formats pass, junk fails', () {
+    expect(isValidPhone('0917 123 4567'), isTrue);
+    expect(isValidPhone('+63 917-123-4567'), isTrue);
+    expect(isValidPhone('(0917) 1234567'), isTrue);
+    expect(isValidPhone('call me'), isFalse);
+    expect(isValidPhone('12'), isFalse);
+  });
+
+  test('Center distance comes from the picked barangay, never made up', () {
+    final dau = evacCenters.value.first;
+    myBarangay.value = null;
+    expect(dau.distanceKm, isNull);
+    expect(dau.distanceLabel, '');
+    myBarangay.value = 'Dau';
+    expect(dau.distanceKm, lessThan(3));
+    myBarangay.value = null;
+  });
+
+  testWidgets('Rescue form: demo notice shows, missing details are caught', (
+    tester,
+  ) async {
+    me = null; // a guest: name and phone start empty
+    await pumpPhone(
+      tester,
+      Scaffold(
+        body: Builder(
+          builder: (context) => Center(
+            child: TextButton(
+              onPressed: () => rescueSheet(context),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('Demo only: no rescuer will come'), findsOneWidget);
+    final send = find.text('Send rescue request');
+    await tester.ensureVisible(send);
+    await tester.pump();
+    await tester.tap(send);
+    await tester.pump();
+    expect(
+      find.text('Type the name of the person to contact.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('Admin: every section renders on a phone', (tester) async {
+    rescueRequests.value = [
+      RescueRequest.fromRow({
+        'request_id': 7,
+        'user_id': null,
+        'contact_name': 'Juan Dela Cruz',
+        'contact_phone': '09171234567',
+        'barangay': 'Dau',
+        'latitude': 15.179,
+        'longitude': 120.586,
+        'people_count': 4,
+        'special_needs': ['elderly', 'infant_child'],
+        'note': 'Second floor, water rising',
+        'status': 'received',
+        'created_at': DateTime.now().toUtc().toIso8601String(),
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      }),
+    ];
+    flaggedNumbers.value = {'09171234567'};
+    await pumpPhone(tester, const AdminScreen());
+    expect(find.textContaining('#7 · Brgy. Dau'), findsOneWidget);
+    expect(find.text('FLAGGED NUMBER: POSSIBLE PRANK'), findsOneWidget);
+    for (final tab in ['Reports', 'Alerts', 'Centers', 'Users']) {
+      await tester.tap(find.text(tab));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+    }
+    expect(find.text('Add a center'), findsNothing); // on Users now
+    await tester.tap(find.text('Centers'));
+    await tester.pump();
+    expect(find.text('Dau Elementary School'), findsOneWidget);
+  });
+
+  testWidgets('Help shows the status of the rescue request sent here', (
+    tester,
+  ) async {
+    myRescue.value = TrackedRescue(12, 'verifying', DateTime.now());
+    await pumpPhone(tester, const Scaffold(body: AssistanceTab()));
+    expect(find.text('Rescue request #12: Verifying'), findsOneWidget);
   });
 
   // Every step of the Before / During / After timeline fits on a phone

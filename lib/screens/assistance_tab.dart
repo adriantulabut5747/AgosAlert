@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
+import 'package:geolocator/geolocator.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/demo_data.dart';
+import '../services/centers.dart';
+import '../services/rescue.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/responsive.dart';
@@ -73,7 +77,11 @@ class _AssistanceTabState extends State<AssistanceTab> {
     final desktop = screenSizeOf(context) == ScreenSize.desktop;
     final emergency = _emergency(context, c, compact: !desktop);
     final hotlines = _hotlines(context, c, all: !desktop);
-    final shelter = _nearestShelter(context, c, all: !desktop);
+    // Rebuilds when an admin changes a center or the user picks a barangay.
+    final shelter = ListenableBuilder(
+      listenable: Listenable.merge([evacCenters, myBarangay]),
+      builder: (context, _) => _nearestShelter(context, c, all: !desktop),
+    );
     final note = Text(
       'Hotline numbers are from Mabalacat City government channels. Check them locally before you rely on them.',
       style: TextStyle(color: c.textSecondary, fontSize: 12, height: 1.45),
@@ -91,6 +99,7 @@ class _AssistanceTabState extends State<AssistanceTab> {
         children: [
           header,
           const SizedBox(height: 28),
+          const MyRescueCard(),
           IntrinsicHeight(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -125,6 +134,7 @@ class _AssistanceTabState extends State<AssistanceTab> {
         const SizedBox(height: 16),
         emergency,
         const SizedBox(height: 22),
+        const MyRescueCard(),
         hotlines,
         const SizedBox(height: 22),
         shelter,
@@ -357,21 +367,15 @@ class _AssistanceTabState extends State<AssistanceTab> {
     AppColors c, {
     bool all = false,
   }) {
-    final open = kEvacCenters.where((e) => e.open).toList()
-      ..sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
-    final e = open.firstOrNull;
+    final list = sortedCenters(evacCenters.value);
+    final e = list.where((e) => e.open).firstOrNull;
     if (all) {
-      final list = [...kEvacCenters]
-        ..sort((a, b) {
-          if (a.open != b.open) return a.open ? -1 : 1;
-          return a.distanceKm.compareTo(b.distanceKm);
-        });
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           SectionHeader(
             'Evacuation centers',
-            badge: const SampleBadge(),
+            badge: centersAreSample ? const SampleBadge() : null,
             actionLabel: 'Details',
             onAction: () =>
                 Navigator.of(context)
@@ -398,8 +402,8 @@ class _AssistanceTabState extends State<AssistanceTab> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         SectionHeader(
-          'Nearest open shelter',
-          badge: const SampleBadge(),
+          myBarangay.value == null ? 'Open shelter' : 'Nearest open shelter',
+          badge: centersAreSample ? const SampleBadge() : null,
           actionLabel: 'All centers',
           onAction: () =>
               Navigator.of(context)
@@ -440,7 +444,11 @@ class _AssistanceTabState extends State<AssistanceTab> {
               ),
               const SizedBox(height: 1),
               Text(
-                'Brgy. ${e.barangay} · ${e.open ? 'Open' : 'Closed'}',
+                [
+                  'Brgy. ${e.barangay}',
+                  e.statusLabel,
+                  if (e.distanceLabel.isNotEmpty) e.distanceLabel,
+                ].join(' · '),
                 style: TextStyle(color: c.textSecondary, fontSize: 13),
               ),
             ],
@@ -1100,15 +1108,105 @@ void showSosSheet(BuildContext context) {
 }
 
 void rescueSheet(BuildContext context) {
-  String barangay = 'Dau';
+  final name = TextEditingController(text: defaultContactName);
+  final phone = TextEditingController(text: defaultContactPhone);
+  final note = TextEditingController();
+  String? barangay = myBarangay.value;
   int people = 1;
   final needs = <String>{};
+  LatLng? spot;
+  var locating = false;
+  var busy = false;
+  String? error;
   showAppSheet(
     context,
     builder: (sheet) {
       return StatefulBuilder(
         builder: (sheet, setSheet) {
           final c = AppColors(sheet);
+
+          Future<void> locate() async {
+            setSheet(() {
+              locating = true;
+              error = null;
+            });
+            try {
+              var perm = await Geolocator.checkPermission();
+              if (perm == LocationPermission.denied) {
+                perm = await Geolocator.requestPermission();
+              }
+              if (perm == LocationPermission.denied ||
+                  perm == LocationPermission.deniedForever) {
+                error = 'Location is blocked. Your barangay is enough.';
+                return;
+              }
+              final pos = await Geolocator.getCurrentPosition(
+                locationSettings: const LocationSettings(
+                  accuracy: LocationAccuracy.high,
+                  timeLimit: Duration(seconds: 15),
+                ),
+              );
+              final p = LatLng(pos.latitude, pos.longitude);
+              final inCity =
+                  p.latitude >= kCityBounds.south &&
+                  p.latitude <= kCityBounds.north &&
+                  p.longitude >= kCityBounds.west &&
+                  p.longitude <= kCityBounds.east;
+              if (inCity) {
+                spot = p;
+              } else {
+                error = 'You seem to be outside Mabalacat. Your barangay is enough.';
+              }
+            } catch (_) {
+              error = "Couldn't get your location. Your barangay is enough.";
+            } finally {
+              if (sheet.mounted) setSheet(() => locating = false);
+            }
+          }
+
+          Future<void> send() async {
+            final missing = name.text.trim().isEmpty
+                ? 'Type the name of the person to contact.'
+                : !isValidPhone(phone.text)
+                ? 'Type a phone number the admins can call, like 0917 123 4567.'
+                : barangay == null
+                ? 'Pick the barangay where help is needed.'
+                : null;
+            if (missing != null) return setSheet(() => error = missing);
+            setSheet(() {
+              busy = true;
+              error = null;
+            });
+            try {
+              final id = await sendRescueRequest(
+                contactName: name.text,
+                contactPhone: phone.text,
+                barangay: barangay!,
+                point: spot,
+                peopleCount: people,
+                specialNeeds: needs,
+                note: note.text,
+              );
+              if (!sheet.mounted) return;
+              Navigator.of(sheet).pop();
+              if (context.mounted) {
+                showSuccessDialog(
+                  context,
+                  title: 'Request #$id saved',
+                  message: 'This is a demo: no one is watching these requests yet, so no rescuer is coming. If you\'re in danger, call 911 now.\n\nYou can follow its status in the Help tab.',
+                );
+              }
+            } catch (e) {
+              setSheet(() {
+                busy = false;
+                // The paper's alternative flow: sending failed -> call.
+                error = '$e'.contains('too_many_requests')
+                    ? 'This number already sent 3 requests in 10 minutes. Call 911 or a hotline now.'
+                    : 'Couldn\'t send it. Call 911 or a hotline now.';
+              });
+            }
+          }
+
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1122,34 +1220,105 @@ void rescueSheet(BuildContext context) {
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Request rescue',
-                          style: TextStyle(
-                            color: c.textPrimary,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        Text(
-                          'Rescuers will come to your barangay',
-                          style: TextStyle(
-                            color: c.textSecondary,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
+                    child: Text(
+                      'Request rescue',
+                      style: TextStyle(
+                        color: c.textPrimary,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
-              const FieldLabel('Your barangay'),
+              const SizedBox(height: 14),
+              // Nov 19 2026: requests are saved, but nobody watches them
+              // yet. Keep this until real responders use the Admin page.
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: kDanger.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: kDanger.withValues(alpha: 0.45)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Demo only: no rescuer will come',
+                      style: TextStyle(
+                        color: c.readable(kDanger),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'AgosAlert is a school project. Requests are saved, but no one is watching them yet. If you\'re in danger, call 911 now.',
+                      style: TextStyle(
+                        color: c.textPrimary,
+                        fontSize: 13,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TintedButton(
+                      label: 'Call 911',
+                      icon: CupertinoIcons.phone_fill,
+                      onPressed: () => confirmCall(
+                        context,
+                        name: 'Emergency',
+                        number: '911',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+              const FieldLabel('Who should the admins call?'),
+              AppTextField(
+                hint: 'Full name',
+                icon: CupertinoIcons.person,
+                controller: name,
+                autofillHints: const [AutofillHints.name],
+                textInputAction: TextInputAction.next,
+              ),
+              const SizedBox(height: 10),
+              AppTextField(
+                hint: 'Phone number',
+                icon: CupertinoIcons.phone,
+                controller: phone,
+                keyboardType: TextInputType.phone,
+                autofillHints: const [AutofillHints.telephoneNumber],
+                textInputAction: TextInputAction.next,
+              ),
+              const SizedBox(height: 16),
+              const FieldLabel('Where is help needed?'),
               BarangayDropdown(
                 value: barangay,
                 onChanged: (v) => setSheet(() => barangay = v),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      spot == null
+                          ? 'Exact location not shared'
+                          : 'Your location will be sent',
+                      style: TextStyle(color: c.textSecondary, fontSize: 13),
+                    ),
+                  ),
+                  TintedButton(
+                    label: spot == null
+                        ? (locating ? 'Finding you...' : 'Share my location')
+                        : 'Shared',
+                    icon: spot == null
+                        ? CupertinoIcons.location_fill
+                        : CupertinoIcons.checkmark_alt,
+                    onPressed: spot != null || locating ? null : locate,
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
               const FieldLabel('How many people?'),
@@ -1168,14 +1337,14 @@ void rescueSheet(BuildContext context) {
                       style: TextStyle(
                         color: c.textPrimary,
                         fontSize: 22,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
                   _stepButton(
                     c,
                     CupertinoIcons.plus,
-                    people < 50 ? () => setSheet(() => people++) : null,
+                    people < 99 ? () => setSheet(() => people++) : null,
                   ),
                 ],
               ),
@@ -1185,44 +1354,49 @@ void rescueSheet(BuildContext context) {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  for (final n in [
-                    'Elderly',
-                    'PWD',
-                    'Infant / child',
-                    'Pregnant',
-                    'Needs medical care',
-                  ])
+                  for (final MapEntry(:key, :value) in kRescueNeeds.entries)
                     SelectChip(
-                      label: n,
-                      selected: needs.contains(n),
+                      label: value,
+                      selected: needs.contains(key),
                       color: kDanger,
                       onTap: () => setSheet(
-                        () =>
-                            needs.contains(n) ? needs.remove(n) : needs.add(n),
+                        () => needs.contains(key)
+                            ? needs.remove(key)
+                            : needs.add(key),
                       ),
                     ),
                 ],
               ),
               const SizedBox(height: 16),
               const FieldLabel('Notes (optional)'),
-              const AppTextField(
+              AppTextField(
                 hint: 'e.g. We are on the 2nd floor, water is rising',
+                controller: note,
                 maxLines: 2,
               ),
-              const SizedBox(height: 22),
+              if (error != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  error!,
+                  style: TextStyle(
+                    color: c.readable(kDanger),
+                    fontSize: 13,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 18),
               PrimaryButton(
                 label: 'Send rescue request',
                 icon: CupertinoIcons.paperplane_fill,
                 color: kDanger,
-                onPressed: () {
-                  Navigator.of(sheet).pop();
-                  showSuccessDialog(
-                    context,
-                    title: 'Request sent (demo)',
-                    message:
-                        'In the full app, the Admins would receive your request for $people ${people == 1 ? 'person' : 'people'} in Brgy. $barangay.\n\nNothing was actually sent. In a real emergency, call 911.',
-                  );
-                },
+                loading: busy,
+                onPressed: send,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'The name, number, place and needs go to AgosAlert\'s admins. See the Privacy Policy.',
+                style: TextStyle(color: c.textSecondary, fontSize: 11),
               ),
             ],
           );
@@ -1230,6 +1404,64 @@ void rescueSheet(BuildContext context) {
       );
     },
   );
+}
+
+/// The status of the rescue request this device sent last (FR-G9), at
+/// the top of Help. Nothing when there's none.
+class MyRescueCard extends StatelessWidget {
+  const MyRescueCard({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder(
+      valueListenable: myRescue,
+      builder: (context, r, _) {
+        if (r == null) return const SizedBox.shrink();
+        final c = AppColors(context);
+        final color = switch (r.status) {
+          'resolved' => kSafe,
+          'flagged_false' => kGray,
+          _ => kDanger,
+        };
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 22),
+          child: AppCard(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                IconBadge(AgosIcons.boat, color, size: 40, squircle: true),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Rescue request #${r.requestId}: ${r.statusLabel}',
+                        style: TextStyle(
+                          color: c.textPrimary,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        r.active
+                            ? 'Demo: no one is watching yet. In danger? Call 911.'
+                            : 'Updated ${timeAgo(DateTime.now().difference(r.updatedAt)).toLowerCase()}',
+                        style: TextStyle(color: c.textSecondary, fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ),
+                if (!r.active)
+                  TintedButton(label: 'Dismiss', onPressed: forgetMyRescue),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
 
 Widget _stepButton(AppColors c, IconData icon, VoidCallback? onTap) {

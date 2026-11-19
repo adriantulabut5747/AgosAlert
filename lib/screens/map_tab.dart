@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart' hide Path;
 
 import '../data/demo_data.dart';
+import '../services/centers.dart';
 import '../services/weather.dart';
 import '../services/reports.dart';
 import '../theme.dart';
@@ -62,7 +63,7 @@ class _MapTabState extends State<MapTab> {
   static const _pinZoom = 15.5;
 
   static String _zoneId(FloodReport z) => 'report-${z.reportId}';
-  static String _centerId(EvacuationCenter e) => 'center-${e.name}';
+  static String _centerId(EvacuationCenter e) => 'center-${e.centerId}';
 
   late List<MapPin> _pins;
   late List<MapZone> _rings;
@@ -88,7 +89,7 @@ class _MapTabState extends State<MapTab> {
           a11y:
               '${z.typeLabel} in Brgy. ${z.barangay}, ${z.hasDepth ? formatCm(z.depth) : z.typeLabel}',
         ),
-      for (final e in kEvacCenters)
+      for (final e in evacCenters.value)
         MapPin(
           id: _centerId(e),
           kind: PinKind.shelter,
@@ -96,7 +97,7 @@ class _MapTabState extends State<MapTab> {
           color: e.open ? kShelter : kGray,
           icon: e.icon,
           title: e.name,
-          a11y: '${e.name}, evacuation center, ${e.open ? 'open' : 'standby'}',
+          a11y: '${e.name}, evacuation center, ${e.statusLabel.toLowerCase()}',
         ),
     ];
 
@@ -117,6 +118,7 @@ class _MapTabState extends State<MapTab> {
     super.initState();
     _refresh();
     floodReports.addListener(_onReports);
+    evacCenters.addListener(_onReports);
     focusedReport.addListener(_openFocused);
     WidgetsBinding.instance.addPostFrameCallback((_) => _openFocused());
   }
@@ -125,6 +127,7 @@ class _MapTabState extends State<MapTab> {
   void dispose() {
     focusedReport.removeListener(_openFocused);
     floodReports.removeListener(_onReports);
+    evacCenters.removeListener(_onReports);
     _map.dispose();
     super.dispose();
   }
@@ -140,7 +143,7 @@ class _MapTabState extends State<MapTab> {
     for (final z in _zones) {
       if (_zoneId(z) == id) return _showZone(context, z);
     }
-    for (final e in kEvacCenters) {
+    for (final e in evacCenters.value) {
       if (_centerId(e) == id) return _showCenter(context, e);
     }
   }
@@ -444,7 +447,7 @@ class _MapTabState extends State<MapTab> {
                                 c,
                                 icon: CupertinoIcons.house_alt_fill,
                                 label:
-                                    'Shelters · ${kEvacCenters.where((e) => e.open).length}/${kEvacCenters.length}',
+                                    'Shelters · ${evacCenters.value.where((e) => e.open).length}/${evacCenters.value.length}',
                                 on: _showCenters,
                                 onTap: () => setState(
                                   () => _showCenters = !_showCenters,
@@ -467,7 +470,7 @@ class _MapTabState extends State<MapTab> {
 
   // Small glass chips: what's on the map, and the depth legend on demand.
   Widget _chipsAndLegend(AppColors c) {
-    final open = kEvacCenters.where((e) => e.open).length;
+    final open = evacCenters.value.where((e) => e.open).length;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -485,7 +488,7 @@ class _MapTabState extends State<MapTab> {
             _layerChip(
               c,
               icon: CupertinoIcons.house_alt_fill,
-              label: 'Shelters · $open/${kEvacCenters.length}',
+              label: 'Shelters · $open/${evacCenters.value.length}',
               on: _showCenters,
               onTap: () => setState(() => _showCenters = !_showCenters),
             ),
@@ -603,7 +606,7 @@ class _MapTabState extends State<MapTab> {
   // The bottom sheet: a handle and a one-line summary; dragged up, the
   // reports (deepest first) and the shelters.
   Widget _sheet(AppColors c, {required double max, required double height}) {
-    final open = kEvacCenters.where((e) => e.open).length;
+    final open = evacCenters.value.where((e) => e.open).length;
     void toggle() => setState(() => _sheetOpen = !_sheetOpen);
     final header = GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -651,7 +654,7 @@ class _MapTabState extends State<MapTab> {
                         ),
                       ),
                     ),
-                    const SampleBadge(),
+                    if (centersAreSample) const SampleBadge(),
                     const SizedBox(width: 8),
                     AnimatedRotation(
                       turns: _sheetOpen ? 0.5 : 0,
@@ -695,7 +698,7 @@ class _MapTabState extends State<MapTab> {
                       padding: EdgeInsets.symmetric(horizontal: 8),
                       child: FieldLabel('Evacuation centers'),
                     ),
-                    for (final e in kEvacCenters) _centerRow(c, e),
+                    for (final e in evacCenters.value) _centerRow(c, e),
                   ],
                 ),
               ),
@@ -994,7 +997,7 @@ class _MapTabState extends State<MapTab> {
                   ),
                 ),
                 const SizedBox(width: 10),
-                const SampleBadge(),
+                if (centersAreSample) const SampleBadge(),
               ],
             ),
             const SizedBox(height: 4),
@@ -1017,7 +1020,7 @@ class _MapTabState extends State<MapTab> {
                 ),
                 SelectChip(
                   label:
-                      'Shelters · ${kEvacCenters.where((e) => e.open).length}/${kEvacCenters.length}',
+                      'Shelters · ${evacCenters.value.where((e) => e.open).length}/${evacCenters.value.length}',
                   icon: CupertinoIcons.house_alt_fill,
                   selected: _showCenters,
                   onTap: () => setState(() => _showCenters = !_showCenters),
@@ -1035,7 +1038,7 @@ class _MapTabState extends State<MapTab> {
                   for (final z in _zones) _pinRow(c, z),
                   const SizedBox(height: 10),
                   const FieldLabel('Evacuation centers'),
-                  for (final e in kEvacCenters) _centerRow(c, e),
+                  for (final e in evacCenters.value) _centerRow(c, e),
                 ],
               ),
             ),
@@ -1150,9 +1153,10 @@ class _MapTabState extends State<MapTab> {
       ),
     ),
     title: e.name,
-    subtitle: e.open
-        ? 'Open · ${e.distanceKm} km away'
-        : 'Standby · not open yet',
+    subtitle: [
+      e.statusLabel,
+      if (e.distanceLabel.isNotEmpty) '${e.distanceLabel} away',
+    ].join(' · '),
   );
 
   // ------------------------------------------------------------ sheets
@@ -1321,20 +1325,15 @@ class _MapTabState extends State<MapTab> {
             const SizedBox(height: 18),
             Row(
               children: [
-                Expanded(
-                  child: _statBox(
-                    c,
-                    'Status',
-                    e.open ? 'Open' : 'Standby',
-                    color,
-                  ),
-                ),
+                Expanded(child: _statBox(c, 'Status', e.statusLabel, color)),
                 const SizedBox(width: 10),
                 Expanded(
                   child: _statBox(
                     c,
                     'Distance',
-                    '${e.distanceKm} km',
+                    e.distanceLabel.isEmpty
+                        ? 'Pick your barangay'
+                        : e.distanceLabel,
                     c.accent,
                   ),
                 ),

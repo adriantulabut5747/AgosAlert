@@ -18,8 +18,7 @@ added one feature at a time as numbered SQL files in `supabase/`
 Editor (no CLI). Done: `users`, `flood_reports` (+ the
 `report-photos` Storage bucket, the `flood_report_feed` view, an hourly
 pg_cron delete), `report_votes` (03), `alerts` + `alert_reads` (04;
-no admin screen yet, admins post with the INSERT example at the top of
-the file), `05_account.sql` (Nov 18 2026: `delete_my_account()` RPC +
+admins post from the Admin page), `05_account.sql` (Nov 18 2026: `delete_my_account()` RPC +
 a select policy on the user's own photo folder, without which Storage's
 remove() silently did nothing). Settings → Account = change display
 name + Change password + Delete account (account.dart sheets, auth.dart
@@ -43,8 +42,27 @@ link, keep it), `terms.html`, `takedown.html` (Philippine RA 8293, NOT
 Adrian's email (his call). **Keep privacy.html true:** any new table,
 column or outside service updates it in the same commit. About → Open-
 source licences = Flutter's page + Inter / MapLibre / three.js texts
-(`_addLicenses` in main.dart). Still sample data / memory only: rescue_requests,
-flagged_numbers, evacuation_centers, device_tokens. Evacuation centers
+(`_addLicenses` in main.dart).
+**Nov 19 2026:** `06_evacuation_centers.sql` (centers in Supabase,
+`services/centers.dart`, live; an extra `is_sample` column: the 4 old
+made-up centers are SAMPLE rows until the real CDRRMO list comes;
+distance = from the user's barangay center, hidden without one, never a
+typed number), `07_rescue_requests.sql` (rescue_requests +
+flagged_numbers; guests send through the `create_rescue_request` RPC,
+max 3 per number per 10 min; this device follows its last request via
+`rescue_request_status` (id + phone in shared_preferences, polled every
+30 s, `MyRescueCard` in Help); deleted after 30 days except
+flagged-false). **Nobody monitors rescue requests yet: the form says
+"Demo only: no rescuer will come" + Call 911. Keep that until real
+responders use the Admin page.** `08_admin.sql` (`set_account_status`
+RPC, admin delete of any report photo). **Admin page**
+(`admin_screen.dart`, deferred, avatar menu item for `role = admin`
+only): Rescue (status, call, directions, flag false / unflag, flagged
+numbers highlighted), Reports (verify, hide / show, delete for good),
+Alerts (post / edit / delete), Centers (status in one tap, add / edit /
+delete), Users (suspend / reactivate; making admins stays in the Table
+Editor). Still not built: device_tokens (push, Adrian: later), "Still
+flooded?" (memory only, not in the paper). Evacuation centers
 show NO capacity / evacuee numbers (Nov 13 2026, Adrian: nobody can
 know them), so the paper's Table 21 must drop `capacity` and
 `current_evacuees` too. RLS is the real security (NFR-3): the
@@ -313,8 +331,8 @@ API, never its own users/password table.
   barangay as metadata; the trigger in `01_users.sql` makes the row.
   Suspended accounts are signed out with a message. Project URL +
   publishable key in `lib/services/supabase_config.dart` (never the
-  secret key). Admins: set `role = 'admin'` in the Table Editor (no admin
-  UI yet). The landing page's "Open the app" popup opens `app/` (login
+  secret key). Admins: set `role = 'admin'` in the Table Editor; they
+  then get the Admin page in the avatar menu. The landing page's "Open the app" popup opens `app/` (login
   screen) or `app/?as=guest` (`lib/services/session.dart`); the old
   `?as=user` is ignored on purpose. Log out = sign out + login screen.
 - Roles: Admin, Registered User, Guest. When a guest taps something they
@@ -354,8 +372,8 @@ API, never its own users/password table.
   map under a fixed pin (`AgosMapController.center`, from MapLibre's
   `moveend`) or "Use my location" (geolocator), barangay = nearest
   barangay center, changeable. Your own report shows a trash button
-  (`DeleteReportButton`) instead of thumbs. Admins verify/remove in the
-  Table Editor (`status`). shortcut: photo files of auto-deleted reports
+  (`DeleteReportButton`) instead of thumbs. Admins verify / hide / delete on
+  the Admin page (`status`). shortcut: photo files of auto-deleted reports
   stay in Storage (SQL can't delete them); the paper's scheduled Edge
   Function fixes that later.
 - **Votes (Nov 13 2026): real** (`supabase/03_report_votes.sql`). The

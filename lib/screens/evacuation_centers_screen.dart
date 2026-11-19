@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
 
-import '../data/demo_data.dart';
+import '../services/centers.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/links.dart';
@@ -21,16 +21,18 @@ class _EvacuationCentersScreenState extends State<EvacuationCentersScreen> {
   bool _openOnly = false;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ValueListenableBuilder(
+    valueListenable: evacCenters, // rebuilds when an admin changes one
+    builder: (context, _, _) => _build(context),
+  );
+
+  Widget _build(BuildContext context) {
     final c = AppColors(context);
-    // Copy the list first ([...kEvacCenters]) because kEvacCenters is a
-    // const list and can't be sorted in place. Then sort nearest first:
-    // compareTo returns negative/zero/positive to say which goes first.
-    final centers = [...kEvacCenters]
-      ..sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
+    // Open first, then nearest to the user's barangay (services/centers.dart).
+    final centers = sortedCenters(evacCenters.value);
     final shown = _openOnly ? centers.where((e) => e.open).toList() : centers;
     final openCount = centers.where((e) => e.open).length;
-    // The closest open one (the list is sorted nearest first).
+    // The closest open one (the list is sorted open + nearest first).
     final nearest = centers.where((e) => e.open).firstOrNull;
 
     return SubpageScaffold(
@@ -56,7 +58,9 @@ class _EvacuationCentersScreenState extends State<EvacuationCentersScreen> {
                   Expanded(
                     child: _summary(
                       c,
-                      nearest == null ? '–' : '${nearest.distanceKm} km',
+                      nearest == null || nearest.distanceLabel.isEmpty
+                          ? '–'
+                          : nearest.distanceLabel,
                       'Nearest open',
                       kBlue,
                       CupertinoIcons.location_fill,
@@ -67,7 +71,7 @@ class _EvacuationCentersScreenState extends State<EvacuationCentersScreen> {
               const SizedBox(height: 18),
               Row(
                 children: [
-                  const SampleBadge(),
+                  if (centersAreSample) const SampleBadge(),
                   const Spacer(),
                   SelectChip(
                     label: 'All',
@@ -162,9 +166,8 @@ class EvacCenterCard extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  AssetImageWithFallback(
-                    e.image,
-                    fit: BoxFit.cover,
+                  _CenterPhoto(
+                    e.photoUrl,
                     fallback: Container(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
@@ -189,7 +192,7 @@ class EvacCenterCard extends StatelessWidget {
                     top: 10,
                     left: 10,
                     child: StatusPill(
-                      e.open ? 'Open' : 'Standby',
+                      e.statusLabel,
                       e.open ? kShelter : const Color(0xFF94A3B8),
                       solid: true,
                     ),
@@ -207,7 +210,7 @@ class EvacCenterCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
-                        '${e.distanceKm} km',
+                        e.distanceLabel,
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 11,
@@ -245,7 +248,11 @@ class EvacCenterCard extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        e.open ? 'Open now' : 'Standby, not open yet',
+                        switch (e.status) {
+                          'open' => 'Open now',
+                          'standby' => 'Standby, not open yet',
+                          _ => 'Closed',
+                        },
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(color: c.textSecondary, fontSize: 11),
@@ -279,4 +286,21 @@ class EvacCenterCard extends StatelessWidget {
       ),
     );
   }
+}
+
+/// A center's photo from its photo_url, or [fallback] (no photo, or it
+/// failed to load).
+class _CenterPhoto extends StatelessWidget {
+  final String? url;
+  final Widget fallback;
+  const _CenterPhoto(this.url, {required this.fallback});
+
+  @override
+  Widget build(BuildContext context) => url == null
+      ? fallback
+      : Image.network(
+          url!,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => fallback,
+        );
 }

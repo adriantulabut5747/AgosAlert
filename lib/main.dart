@@ -8,6 +8,8 @@ import 'screens/home_shell.dart';
 import 'screens/login_screen.dart';
 import 'services/alerts.dart';
 import 'services/auth.dart';
+import 'services/centers.dart';
+import 'services/rescue.dart';
 import 'services/reports.dart';
 import 'services/session.dart';
 import 'theme.dart';
@@ -23,6 +25,8 @@ Future<void> main() async {
   // HTML loading screen stays up meanwhile (services/auth.dart).
   await initAuth();
   startAlerts(); // the bell's alerts + live updates (not awaited)
+  loadMyRescue(); // this device's last rescue request, if any (not awaited)
+  startCenters(); // evacuation centers + live updates (not awaited)
   startReports(); // the flood reports + live updates (not awaited: the app opens meanwhile)
   _addLicenses();
   runApp(const AgosAlertApp());

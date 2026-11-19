@@ -18,9 +18,9 @@
 --     an admin (checked by the trigger below).
 --   * Users read and write only their own alert_reads rows.
 --
--- There is no admin screen yet. To post an alert, run this in the SQL
--- Editor with your own values (posted_by = an admin's user_id; the
--- subquery finds it by email):
+-- Admins post alerts from the app's Admin page (admin_screen.dart).
+-- Without the app, run this in the SQL Editor with your own values
+-- (posted_by = an admin's user_id; the subquery finds it by email):
 --
 --   insert into public.alerts
 --     (title, summary, details, category, severity, area, actions, posted_by)

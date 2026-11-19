@@ -1021,6 +1021,18 @@ class _ProfileMenu extends StatelessWidget {
             child: const Text('Dark mode'),
           ),
           Divider(height: 17, color: c.border),
+          // Admins only (FR-A1). The database checks every admin change
+          // anyway; this only hides the door.
+          if (me?.isAdmin == true)
+            MenuItemButton(
+              style: itemStyle,
+              leadingIcon: const Icon(
+                CupertinoIcons.shield_lefthalf_fill,
+                size: 20,
+              ),
+              onPressed: () => openAdmin(context),
+              child: const Text('Admin'),
+            ),
           MenuItemButton(
             style: itemStyle,
             leadingIcon: const Icon(

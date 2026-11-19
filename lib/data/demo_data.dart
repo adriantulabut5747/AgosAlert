@@ -131,65 +131,7 @@ const Map<String, LocalPhoto> kAreaPhotos = {'Brgy. Dau': kPhotoDauBridge};
 /// does the deleting, see supabase/02_flood_reports.sql).
 const Duration kPinLifetime = Duration(days: 14);
 
-class EvacuationCenter {
-  final String name;
-  final String barangay;
-  final LatLng point;
-  // No capacity / evacuee numbers (Nov 13 2026, Adrian): nobody can know
-  // how many people are inside, so the app doesn't pretend to.
-  final bool open;
-  final double distanceKm;
-  final IconData icon;
-  final String image; // optional photo in assets/images/
-  const EvacuationCenter(
-    this.name,
-    this.barangay,
-    this.point,
-    this.open,
-    this.distanceKm,
-    this.icon,
-    this.image,
-  );
-}
-
-const List<EvacuationCenter> kEvacCenters = [
-  EvacuationCenter(
-    'Mabalacat City Sports Complex',
-    'Mabiga',
-    LatLng(15.2100, 120.5760),
-    true,
-    2.1,
-    CupertinoIcons.sportscourt_fill,
-    'assets/images/evac_sports_complex.jpg',
-  ),
-  EvacuationCenter(
-    'Mabalacat City Hall Grounds',
-    'Poblacion',
-    LatLng(15.2230, 120.5735),
-    true,
-    3.0,
-    CupertinoIcons.building_2_fill,
-    'assets/images/evac_city_hall.jpg',
-  ),
-  EvacuationCenter(
-    'Dau Elementary School',
-    'Dau',
-    LatLng(15.1790, 120.5860),
-    true,
-    1.4,
-    CupertinoIcons.book_fill,
-    'assets/images/evac_dau_school.jpg',
-  ),
-  EvacuationCenter(
-    'Dolores Covered Court',
-    'Dolores',
-    LatLng(15.2150, 120.5600),
-    false,
-    3.6,
-    CupertinoIcons.house_alt_fill,
-    'assets/images/evac_dolores_court.jpg',
-  ),
-];
+// Evacuation centers moved to services/centers.dart (Supabase, Nov 19 2026).
 
 enum Vote { up, down }
 
