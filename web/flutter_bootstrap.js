@@ -54,7 +54,12 @@
   _flutter.loader.load({
     onEntrypointLoaded: async function (engineInitializer) {
       stage(60, 'Reading the forecast…');
-      const appRunner = await engineInitializer.initializeEngine();
+      // Every glass piece over the web map is an HTML element (MapGlass), and
+      // each needs its own Flutter canvas above it. The phone Map tab has
+      // ~10 (top bar, search, buttons, sheet, +, nav pill); past CanvasKit's
+      // default limit of 8 it merges canvases, and the map's pins showed
+      // ON TOP of the sheet (Nov 19 2026). 16 leaves room.
+      const appRunner = await engineInitializer.initializeEngine({ canvasKitMaximumSurfaces: 16 });
       stage(85, 'Almost there…');
       await appRunner.runApp();
       // Safety net in case the first-frame event is missed.
