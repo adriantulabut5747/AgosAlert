@@ -1,0 +1,63 @@
+# Builds the Android app (APK) on GitHub's servers and publishes it as a
+# GitHub Release, so a phone can download and install it from one link:
+#   https://github.com/<owner>/<repo>/releases/latest/download/AgosAlert.apk
+# (this PC has no Android SDK; GitHub's Ubuntu runners do).
+#
+# The APK is signed with Flutter's debug key (android/app/build.gradle.kts):
+# fine for installing by hand ("install unknown apps"), not for Google Play,
+# which needs our own upload key first.
+name: Build Android APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # also a "Run workflow" button on the Actions tab
+
+permissions:
+  contents: write # to create the release
+
+concurrency:
+  group: apk
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.47.5' # same as the PC it's developed on
+          cache: true
+
+      - run: flutter pub get
+
+      # Each build gets a higher version code, so a new APK installs over the old one.
+      - name: Build the APK
+        run: |
+          flutter build apk --release \
+            --build-name=1.0.${{ github.run_number }} \
+            --build-number=${{ github.run_number }}
+          cp build/app/outputs/flutter-apk/app-release.apk AgosAlert.apk
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-${{ github.run_number }}
+          name: AgosAlert for Android (build ${{ github.run_number }})
+          make_latest: true
+          files: AgosAlert.apk
+          body: |
+            **Install on an Android phone**
+            1. On the phone, open: https://github.com/${{ github.repository }}/releases/latest/download/AgosAlert.apk
+            2. Open the downloaded file. If Android asks, allow your browser to "install unknown apps".
+            3. Tap **Install**, then **Open**.
+
+            Same accounts and data as the web app. Unofficial demo, not from the Mabalacat City government.
+            Built from commit ${{ github.sha }}.

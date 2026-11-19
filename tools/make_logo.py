@@ -11,7 +11,7 @@ Edit the numbers here and rerun; never edit the PNGs or SVGs by hand:
     python tools/make_logo.py
 
 Writes: brand/*.svg (masters), assets/images/logo_*.png, web favicon and
-PWA icons, and the landing page copies. Needs Google Chrome (renders the
+PWA icons, the Android launcher icons, and the landing page copies. Needs Google Chrome (renders the
 SVGs to PNG), Pillow and fontTools.
 """
 
@@ -220,6 +220,10 @@ def main() -> None:
 
     # Browser tab + home-screen icons. The favicon uses the heavier small cut.
     render(tile_svg(INK, PAPER, small=True, thin=1), ROOT / "web/favicon.png", 64)
+    # Android launcher icons (the APK): the app icon tile at each density.
+    for folder, size in (("mdpi", 48), ("hdpi", 72), ("xhdpi", 96), ("xxhdpi", 144), ("xxxhdpi", 192)):
+        render(tile_svg(INK, PAPER, small=size <= 72, thin=1),
+               ROOT / f"android/app/src/main/res/mipmap-{folder}/ic_launcher.png", size)
     for size in (192, 512):
         render(tile_svg(INK, PAPER, thin=1), ROOT / f"web/icons/Icon-{size}.png", size)
         # Maskable: phones crop these to any shape, so the mark stays inside
