@@ -144,12 +144,6 @@ Future<void> openNotifications(BuildContext context) async {
   if (context.mounted) notifications.showNotifications(context);
 }
 
-/// The SOS sheet (hotlines + request rescue), from the + button.
-Future<void> openSos(BuildContext context) async {
-  await assistance.loadLibrary();
-  if (context.mounted) assistance.showSosSheet(context);
-}
-
 void openSettings(BuildContext context) => _openPage(
   context,
   load: settings.loadLibrary,

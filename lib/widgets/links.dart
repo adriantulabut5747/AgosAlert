@@ -37,6 +37,18 @@ Future<void> openLegalPage(BuildContext context, String page) async {
   }
 }
 
+/// Opens the phone's dialer on [number]. Only after the user clearly asked
+/// (the "Call now" button, or the finished SOS hold).
+Future<void> callNumber(BuildContext context, String number) async {
+  final digits = number.replaceAll(RegExp(r'[^0-9+]'), '');
+  final ok = await launchUrl(Uri(scheme: 'tel', path: digits));
+  if (!ok && context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Calling isn\'t supported here. Dial $number.')),
+    );
+  }
+}
+
 /// Asks before calling, so nobody dials a hotline by accident.
 Future<void> confirmCall(
   BuildContext context, {
@@ -75,19 +87,9 @@ Future<void> confirmCall(
           PrimaryButton(
             label: 'Call now',
             icon: CupertinoIcons.phone_fill,
-            onPressed: () async {
+            onPressed: () {
               Navigator.of(sheet).pop();
-              final digits = number.replaceAll(RegExp(r'[^0-9+]'), '');
-              final ok = await launchUrl(Uri(scheme: 'tel', path: digits));
-              if (!ok && context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      'Calling isn\'t supported here. Dial $number.',
-                    ),
-                  ),
-                );
-              }
+              callNumber(context, number);
             },
           ),
           const SizedBox(height: 8),

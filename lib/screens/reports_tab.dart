@@ -320,14 +320,16 @@ class _ReportsTabState extends State<ReportsTab> {
             selected: _type == null,
             onTap: () => setState(() => _type = null),
           ),
+          // No Landslide chip (Nov 20 2026, Adrian): nobody has posted one.
           for (final (icon, label) in kIncidentTypes)
-            SelectChip(
-              label: label,
-              icon: icon,
-              selected: _type == label,
-              onTap: () =>
-                  setState(() => _type = _type == label ? null : label),
-            ),
+            if (label != 'Landslide')
+              SelectChip(
+                label: label,
+                icon: icon,
+                selected: _type == label,
+                onTap: () =>
+                    setState(() => _type = _type == label ? null : label),
+              ),
         ]),
         group('Show only', [
           if (barangay != null)

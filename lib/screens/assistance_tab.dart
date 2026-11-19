@@ -16,12 +16,15 @@ import '../widgets/tugak.dart';
 import 'evacuation_centers_screen.dart';
 import '../widgets/agos_icons.dart';
 
+/// The Hotlines list on Help: everything but 911, which is the SOS button.
+final _localHotlines = kHotlines.where((h) => h.number != '911').toList();
+
 /// ============================================================
 /// HELP TAB (file name kept from when it was "Assistance")
 /// ============================================================
 /// Two parts only:
 /// 1. Need help now: one card with the SOS button (hold = call 911), one-tap
-///    CDRRMO / Police, all hotlines, I'm safe, Request rescue; then the
+///    the local hotlines (911 = SOS), I'm safe, Request rescue; then the
 ///    nearest open shelter.
 /// 2. Be ready: tips Before / During / After, with the go-bag checklist
 ///    inside Before (that's when you pack it).
@@ -161,6 +164,7 @@ class _AssistanceTabState extends State<AssistanceTab> {
           _SosButton(
             number: sos.number,
             compact: compact,
+            onHeld: () => callNumber(context, sos.number),
             onActivated: () => confirmCall(
               context,
               name: sos.name,
@@ -240,8 +244,8 @@ class _AssistanceTabState extends State<AssistanceTab> {
   // [all] (phones, tablets): every hotline, no extra tap.
   Widget _hotlines(BuildContext context, AppColors c, {bool all = false}) {
     final quick = all
-        ? kHotlines
-        : kHotlines
+        ? _localHotlines
+        : _localHotlines
               .where((h) => h.short == 'CDRRMO' || h.short == 'Police')
               .toList();
     return Column(
@@ -251,7 +255,7 @@ class _AssistanceTabState extends State<AssistanceTab> {
             ? const SectionHeader('Hotlines')
             : SectionHeader(
                 'Hotlines',
-                actionLabel: 'All ${kHotlines.length}',
+                actionLabel: 'All ${_localHotlines.length}',
                 onAction: () => _allHotlines(context),
               ),
         AppCard(
@@ -305,15 +309,15 @@ class _AssistanceTabState extends State<AssistanceTab> {
               style: TextStyle(color: c.textSecondary, fontSize: 13),
             ),
             const SizedBox(height: 10),
-            for (var i = 0; i < kHotlines.length; i++) ...[
+            for (var i = 0; i < _localHotlines.length; i++) ...[
               if (i > 0) Divider(height: 1, indent: 52, color: c.border),
-              _hotlineRow(c, kHotlines[i], () {
+              _hotlineRow(c, _localHotlines[i], () {
                 Navigator.of(sheet).pop();
                 confirmCall(
                   context,
-                  name: kHotlines[i].name,
-                  number: kHotlines[i].number,
-                  color: kHotlines[i].color,
+                  name: _localHotlines[i].name,
+                  number: _localHotlines[i].number,
+                  color: _localHotlines[i].color,
                 );
               }),
             ],
@@ -1027,85 +1031,7 @@ class _DepthDiagram extends StatelessWidget {
   }
 }
 
-// ----- Sheets (top-level, so the + button can open SOS too) -----
-
-/// Emergency SOS: the main hotlines, or request a rescue.
-void showSosSheet(BuildContext context) {
-  showAppSheet(
-    context,
-    builder: (sheet) {
-      final c = AppColors(sheet);
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Emergency SOS',
-            style: TextStyle(
-              color: c.textPrimary,
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Who do you need to reach?',
-            style: TextStyle(color: c.textSecondary, fontSize: 13),
-          ),
-          const SizedBox(height: 18),
-          for (final h in kHotlines.take(3))
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: AppCard(
-                padding: const EdgeInsets.all(14),
-                onTap: () {
-                  Navigator.of(sheet).pop();
-                  confirmCall(
-                    context,
-                    name: h.name,
-                    number: h.number,
-                    color: h.color,
-                  );
-                },
-                child: Row(
-                  children: [
-                    IconBadge(h.icon, h.color, size: 44),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Text(
-                        h.name,
-                        style: TextStyle(
-                          color: c.textPrimary,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 15,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      h.number,
-                      style: TextStyle(
-                        color: h.color,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 15,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          const SizedBox(height: 6),
-          PrimaryButton(
-            label: 'Request rescue instead',
-            icon: AgosIcons.boat,
-            onPressed: () {
-              Navigator.of(sheet).pop();
-              rescueSheet(context);
-            },
-          ),
-        ],
-      );
-    },
-  );
-}
+// ----- Sheets -----
 
 void rescueSheet(BuildContext context) {
   final name = TextEditingController(text: defaultContactName);
@@ -1488,11 +1414,15 @@ Widget _stepButton(AppColors c, IconData icon, VoidCallback? onTap) {
 /// it still asks before calling.
 class _SosButton extends StatefulWidget {
   final String number;
+  // The full hold: dials right away (holding is the confirmation).
+  final VoidCallback onHeld;
+  // A screen reader's plain tap: asks first.
   final VoidCallback onActivated;
   // phones: a smaller button with its caption to the right
   final bool compact;
   const _SosButton({
     required this.number,
+    required this.onHeld,
     required this.onActivated,
     this.compact = false,
   });
@@ -1505,7 +1435,7 @@ class _SosButton extends StatefulWidget {
 // animation controllers, and the Single version only allows one.
 class _SosButtonState extends State<_SosButton> with TickerProviderStateMixin {
   // How far the hold has got: 0.0 = not pressed, 1.0 = held for the full
-  // 1.4 seconds. Reaching the end resets the ring and fires onActivated.
+  // 1.4 seconds. Reaching the end resets the ring and fires onHeld.
   late final AnimationController _hold =
       AnimationController(
         vsync: this,
@@ -1513,7 +1443,7 @@ class _SosButtonState extends State<_SosButton> with TickerProviderStateMixin {
       )..addStatusListener((s) {
         if (s == AnimationStatus.completed) {
           _hold.reset();
-          widget.onActivated();
+          widget.onHeld();
         }
       });
   // The soft ripples around the button, looping.
