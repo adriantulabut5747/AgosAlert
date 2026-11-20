@@ -69,6 +69,12 @@ class DailyForecast {
     this.sunrise,
     this.sunset,
   );
+
+  /// The 5-day list's icon: rain/storm codes (51+) only at a 60%+ chance,
+  /// else cloudy (3), so the icon never says rain beside a low chance.
+  /// No chance from the source (MET Norway) = the code as it is.
+  int get iconCode =>
+      weatherCode >= 51 && (rainChance ?? 100) < 60 ? 3 : weatherCode;
 }
 
 /// Open-Meteo's multi-model answer (`precipitation_probability_<model>`

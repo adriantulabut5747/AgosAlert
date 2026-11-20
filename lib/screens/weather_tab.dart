@@ -717,8 +717,8 @@ class _DaysCard extends StatelessWidget {
                     ),
                   ),
                   Tooltip(
-                    message: weatherInfo(days[i].weatherCode).$1,
-                    child: WeatherGlyph(code: days[i].weatherCode, size: 36),
+                    message: weatherInfo(days[i].iconCode).$1,
+                    child: WeatherGlyph(code: days[i].iconCode, size: 36),
                   ),
                   // Rain chance in Apple Weather's cyan, only when it's
                   // worth mentioning.

@@ -59,4 +59,13 @@ void main() {
     expect(avg[DateTime(2026, 11, 19, 16)], 66); // (98 + 100 + 0) / 3
     expect(avg[DateTime(2026, 11, 19, 17)], 47); // null skipped
   });
+
+  test('5-day icon shows rain only at a 60%+ chance', () {
+    final t = DateTime(2026, 11, 20);
+    DailyForecast day(int? chance, int code) => DailyForecast(t, 31, 25, chance, 0, code, t, t);
+    expect(day(58, 95).iconCode, 3); // storm code, low chance = cloudy
+    expect(day(60, 95).iconCode, 95);
+    expect(day(null, 61).iconCode, 61); // source gives no chance
+    expect(day(10, 2).iconCode, 2); // not a rain code: unchanged
+  });
 }
