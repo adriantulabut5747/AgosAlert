@@ -190,17 +190,17 @@
     + '&forecast_days=2&timezone=Asia%2FManila';
 
   // weather.dart's averageChances + dayChance: each hour's chance = the models' average
-  // (the entry at 8:00 is for 7-8); today's = the highest of the hours not over yet.
+  // (the entry at 8:00 is for 7-8); today's = this hour's, like the app's Today row (Adrian).
   function todayChance(m, now) {
     var h = m.hourly, thisHour = now.slice(0, 13) + ':00', best = null;
     var cols = Object.keys(h).filter(function (k) { return k.indexOf('precipitation_probability_') === 0; });
     h.time.forEach(function (t, i) {
       var hour = manilaIso(Date.parse(t + ':00+08:00') - 36e5);
-      if (hour < thisHour || hour.slice(0, 10) !== now.slice(0, 10)) return;
+      if (hour !== thisHour) return;
       var vals = cols.map(function (k) { return h[k][i]; }).filter(function (v) { return v != null; });
       if (!vals.length) return;
       var avg = Math.round(vals.reduce(function (a, b) { return a + b; }, 0) / vals.length);
-      best = Math.max(best || 0, avg);
+      best = avg;
     });
     return best;
   }
