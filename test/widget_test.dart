@@ -594,7 +594,7 @@ void main() {
     final mine = FloodReport(
       reportId: 2,
       userId: kTestUser.userId,
-      incidentType: 'landslide',
+      incidentType: 'fallen power line',
       severity: 'moderate',
       barangay: 'Dau',
       latitude: r.latitude,
@@ -608,8 +608,8 @@ void main() {
     await pumpPhone(tester, ReportPost(zone: mine));
     expect(find.byIcon(CupertinoIcons.trash), findsOneWidget);
     expect(find.byIcon(CupertinoIcons.hand_thumbsup_fill), findsNothing);
-    // No depth for a landslide: the type shows instead of "Dry".
-    expect(find.text('Landslide'), findsOneWidget);
+    // No depth for a power line: the type shows instead of "Dry".
+    expect(find.text('Fallen power line'), findsOneWidget);
   });
 
   // The + above the phone nav opens the form; guests get the login popup.

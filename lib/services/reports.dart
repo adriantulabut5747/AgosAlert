@@ -157,10 +157,10 @@ class Uploader {
 
 /// What can be reported: (icon, label). The label, lowercased, is what
 /// `incident_type` holds. One list for the form, the pins and the posts.
+/// No Landslide (Nov 20 2026, Adrian); the database still accepts it.
 const kIncidentTypes = [
   (AgosIcons.flood, 'Flooding'),
   (AgosIcons.roadBlock, 'Blocked road'),
-  (AgosIcons.landslide, 'Landslide'),
   (CupertinoIcons.bolt_fill, 'Fallen power line'),
   (CupertinoIcons.person_3_fill, 'Stranded people'),
   (CupertinoIcons.ellipsis, 'Other'),

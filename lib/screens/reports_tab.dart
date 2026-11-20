@@ -320,16 +320,14 @@ class _ReportsTabState extends State<ReportsTab> {
             selected: _type == null,
             onTap: () => setState(() => _type = null),
           ),
-          // No Landslide chip (Nov 20 2026, Adrian): nobody has posted one.
           for (final (icon, label) in kIncidentTypes)
-            if (label != 'Landslide')
-              SelectChip(
-                label: label,
-                icon: icon,
-                selected: _type == label,
-                onTap: () =>
-                    setState(() => _type = _type == label ? null : label),
-              ),
+            SelectChip(
+              label: label,
+              icon: icon,
+              selected: _type == label,
+              onTap: () =>
+                  setState(() => _type = _type == label ? null : label),
+            ),
         ]),
         group('Show only', [
           if (barangay != null)
@@ -1051,7 +1049,7 @@ class StillFloodedRow extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                // A landslide or power line isn't "flooded".
+                // A blocked road or power line isn't "flooded".
                 zone.hasDepth ? 'Still flooded?' : 'Still there?',
                 style: TextStyle(
                   color: c.textSecondary,
