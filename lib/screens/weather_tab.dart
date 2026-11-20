@@ -720,17 +720,20 @@ class _DaysCard extends StatelessWidget {
                     message: weatherInfo(days[i].iconCode).$1,
                     child: WeatherGlyph(code: days[i].iconCode, size: 36),
                   ),
-                  // Rain chance in Apple Weather's cyan, only when it's
-                  // worth mentioning.
+                  // Rain chance on every day (Nov 20 2026, Adrian: a blank
+                  // read as missing). Apple Weather's cyan from 20%, dim
+                  // gray below. Blank only when the source has none.
                   SizedBox(
                     width: 46,
                     child: Text(
-                      (days[i].rainChance ?? 0) >= 20
-                          ? '${days[i].rainChance}%'
-                          : '',
+                      days[i].rainChance == null
+                          ? ''
+                          : '${days[i].rainChance}%',
                       textAlign: TextAlign.right,
                       style: TextStyle(
-                        color: c.readable(const Color(0xFF40C8FF)),
+                        color: (days[i].rainChance ?? 0) >= 20
+                            ? c.readable(const Color(0xFF40C8FF))
+                            : c.textSecondary,
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
                       ),
