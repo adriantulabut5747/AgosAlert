@@ -338,6 +338,11 @@ class MabalacatWeather {
       final day = DateTime(t.year, t.month, t.day);
       dayChance[day] = math.max(dayChance[day] ?? 0, p);
     });
+    // Today = this hour's chance, the same number as the live card (Adrian).
+    if (hourly.isNotEmpty && hourly.first.rainChance != null) {
+      final t = hourly.first.time;
+      dayChance[DateTime(t.year, t.month, t.day)] = hourly.first.rainChance!;
+    }
     final dTimes = (d['time'] as List).cast<String>();
     final daily = [
       for (var i = 0; i < dTimes.length; i++)
