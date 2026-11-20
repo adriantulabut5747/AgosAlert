@@ -217,7 +217,9 @@ class _MapTabState extends State<MapTab> {
     final top = MediaQuery.paddingOf(context).top;
     // Phones: the sheet sits above the floating bottom nav. Tablets have
     // none, and their sheet doesn't stretch across the whole screen.
-    final bottom = wide ? 16.0 : 78.0;
+    // + the phone's own gesture bar: the nav sits above it (SafeArea), so
+    // without it the sheet touches the nav on Android.
+    final bottom = wide ? 16.0 : 78.0 + MediaQuery.paddingOf(context).bottom;
     // Phones: the sheet and the + line up with the bottom nav's sides.
     final side = wide ? 12.0 : 28.0;
     final hideBottom = !wide && _searching;

@@ -44,6 +44,7 @@ dependencies:
   supabase_flutter: ^2.18.3
   exif: ^3.3.0
   geolocator: ^14.1.2
+  webview_flutter: ^4.14.1
 
 dev_dependencies:
   flutter_test:
